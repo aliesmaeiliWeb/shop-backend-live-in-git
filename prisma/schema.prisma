@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  User
+  Admin
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  lastName  String
+  password  String?
+  avatar    String
+  role      Role     @default(Admin)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attribute {
+  id         Int        @id @default(autoincrement())
+  name       String     @unique
+  label      String
+  type       String
+  options    String?    @db.Text
+  // categry many to many
+  categories Category[]
+}
+
+model Category {
+  id         Int         @id @default(autoincrement())
+  name       String
+  icon       String
+  status     Boolean     @default(true)
+  products   Product[]
+  // category many to many
+  attributes Attribute[]
+}
+
+model Product {
+  id               Int       @id @default(autoincrement())
+  name             String
+  longDescription  String    @db.Text
+  shortDescription String
+  quantity         Int
+  price            Float     @default(0)
+  main_Image       String
+  category         Category  @relation(fields: [categoryId], references: [id])
+  categoryId       Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime? @default(now()) @updatedAt
+
+  dynamicAttributes String? @db.Text
+}
