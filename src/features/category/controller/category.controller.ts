@@ -4,7 +4,10 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 
 class CategoryController {
   public async create(req: Request, res: Response) {
-    const category = await categoryServer.add(req.body);
+    console.log("Controller - Request Body:", req.body);
+  console.log("Controller - File:", req.file);
+    const imageUrl = req.file ? `/uploads/categories/${req.file.filename}` : undefined;
+    const category = await categoryServer.add(req.body, imageUrl!);
     return res.status(HTTP_STATUS.create).json({
       message: "Create Category",
       data: category,
@@ -30,9 +33,11 @@ class CategoryController {
   }
 
   public async update(req: Request, res: Response) {
+    const imageUrl = req.file ? `/uploads/categories/${req.file.filename}` : undefined;
     const category = await categoryServer.edit(
       parseInt(req.params.id),
-      req.body
+      req.body,
+      imageUrl
     );
 
     return res.status(HTTP_STATUS.ok).json({

@@ -4,8 +4,13 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 import { UtilsConstant } from "../../../globals/constants/utils";
 
 class ProductController {
+  //! add product
   public async create(req: Request, res: Response) {
-    const product = await productService.add(req.body);
+    const product = await productService.add(
+      req.body,
+      req.currentUser,
+      req.file
+    );
 
     return res.status(HTTP_STATUS.create).json({
       message: "create product",
@@ -13,6 +18,7 @@ class ProductController {
     });
   }
 
+  //! read product
   public async read(req: Request, res: Response) {
     // const product = await productService.get(); //? normal get
 
@@ -25,26 +31,30 @@ class ProductController {
     const sortDir =
       (req.query.sortDir as string) || UtilsConstant.Default_Sort_Dir;
 
-      
-      const where: any = {};
-      const filterBy: string = req.query.filterBy as string;
-      const filterValueParams: string = req.query.filterValue as string;
-    const [filterCondition, filterValue] = filterValueParams.split(".");
-    
-    const operation = ["lt", "lte", "gt", "gte"];
+    const where: any = {};
+    const filterBy: string = req.query.filterBy as string;
+    // const filterValueParams: string = req.query.filterValue as string;
+    const filterValueParams = req.query.filterValue
+      ? String(req.query.filterValue)
+      : "";
 
-    if (filterCondition === 'eq') {
-      where[filterBy] = parseInt(filterValue);
-    }
-    
-    operation.forEach((operation) => {
-      if (filterCondition === operation) {
-        where[filterBy] = {};
-        where[filterBy][filterCondition] = parseInt(filterValue);
+      console.log(filterValueParams, filterBy);
+
+    if (filterBy && filterValueParams) {
+      //+ "lt.5" ===> split("0") => ["lt", "5"]
+      const [filterCondition, filterValue] = filterValueParams.split(".");
+
+      const operation = ["lt", "lte", "gt", "gte"];
+
+      if (filterCondition === "eq") {
+        where[filterBy] = parseInt(filterValue);
       }
-    });
 
-    console.log(where);
+      if (operation.includes(filterCondition)) {
+        where[filterBy] = { [filterCondition]: parseInt(filterValue) };
+      }
+      console.log("filter: ", filterCondition, filterValue);
+    }
 
     const product = await productService.getPagination(
       page,
@@ -61,6 +71,7 @@ class ProductController {
     });
   }
 
+  //! readone product
   public async readOne(req: Request, res: Response) {
     const product = await productService.getOne(parseInt(req.params.id));
 
@@ -70,10 +81,12 @@ class ProductController {
     });
   }
 
+  //! update product
   public async update(req: Request, res: Response) {
     const product = await productService.edit(
       parseInt(req.params.id),
-      req.body
+      req.body,
+      req.currentUser
     );
 
     res.status(HTTP_STATUS.ok).json({
@@ -82,11 +95,21 @@ class ProductController {
     });
   }
 
+  //! delete product
   public async delete(req: Request, res: Response) {
-    await productService.remove(parseInt(req.params.id));
+    await productService.remove(parseInt(req.params.id), req.currentUser);
 
     return res.status(HTTP_STATUS.ok).json({
       message: "delete product",
+    });
+  }
+
+  public async readMyProducts(req: Request, res: Response) {
+    const products = await productService.getMyProduct(req.currentUser);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "Get my products",
+      data: products,
     });
   }
 }

@@ -74,6 +74,7 @@ class AuthService {
 
     //? create jwt
     const payload: UserPayload = {
+      id: newUser.id,
       email,
       name,
       lastName,
@@ -105,6 +106,7 @@ class AuthService {
     }
     //? generate JWT -> access token
     const payload: UserPayload = {
+      id: user.id,
       email: user.email,
       name: user.name,
       lastName: user.lastName,
@@ -159,6 +161,7 @@ class AuthService {
       }
 
       const newPayload: UserPayload = {
+        id: user.id,
         email: user.email,
         name: user.name,
         lastName: user.lastName,

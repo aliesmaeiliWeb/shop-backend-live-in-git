@@ -17,19 +17,22 @@ datasource db {
 enum Role {
   User
   Admin
+  Shop
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
-  email     String   @unique
+  email     String    @unique
   lastName  String
   password  String?
   avatar    String
-  role      Role     @default(Admin)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      Role      @default(Admin)
+  // for relation
+  products  Product[]
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Attribute {
@@ -48,6 +51,7 @@ model Category {
   icon       String
   status     Boolean     @default(true)
   products   Product[]
+  imageUrl   String?
   // category many to many
   attributes Attribute[]
 }
@@ -62,6 +66,8 @@ model Product {
   main_Image       String
   category         Category  @relation(fields: [categoryId], references: [id])
   categoryId       Int
+  shop             User?     @relation(fields: [shopId], references: [id])
+  shopId           Int?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime? @default(now()) @updatedAt
 

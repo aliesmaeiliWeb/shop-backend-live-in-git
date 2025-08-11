@@ -4,18 +4,29 @@ import { notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 
 class CategoryServer {
-  public async add(requestBody: ICategoryBody): Promise<Category> {
+  public async add(
+    requestBody: ICategoryBody,
+    imageUrl: string
+  ): Promise<Category> {
     const { name, icon, attributeIds } = requestBody; //? get for controller => req.body
 
-    console.log("Received data for new category:", requestBody, attributeIds);
+    console.log("Service - Data to Prisma:", {
+    name,
+    icon,
+    imageUrl,
+    attributes: {
+      connect: attributeIds?.map((id) => ({ id: Number(id) })),
+    },
+  });
 
     const category: Category = await prisma.category.create({
       data: {
         name,
         icon,
+        imageUrl,
         attributes: {
           //? connect attribute widht id's
-          connect: attributeIds?.map((id) => ({ id })),
+          connect: attributeIds?.map((id) => ({ id: Number(id) })),
         },
       },
     });
@@ -34,27 +45,18 @@ class CategoryServer {
   }
 
   public async readOne(id: number): Promise<Category> {
-    const category = await prisma.category.findFirst({
-      where: {
-        id,
-        status: true,
-      },
-      include: {
-        attributes: true,
-      },
-    });
-    if (!category) {
-      throw new notFoundExeption(`category with id : ${id} not found`);
-    }
+    const category = await this.getCountCategory(id);
     return category;
   }
 
-  public async edit(id: number, requestBody: ICategoryBody) {
+  public async edit(
+    id: number,
+    requestBody: ICategoryBody,
+    newImageUrl?: string
+  ) {
     const { name, icon, attributeIds } = requestBody;
 
-    if ((await this.getCountCategory(id)) <= 0) {
-      throw new notFoundExeption(`category with id : ${id} not found`);
-    }
+    const existingCategory = await this.getCountCategory(id);
 
     const updatedCategory = await prisma.category.update({
       where: {
@@ -64,6 +66,7 @@ class CategoryServer {
       data: {
         name,
         icon,
+        imageUrl: newImageUrl || existingCategory.imageUrl,
         attributes: attributeIds
           ? {
               set: attributeIds.map((attrId) => ({ id: Number(attrId) })),
@@ -83,9 +86,7 @@ class CategoryServer {
   }
 
   public async remove(id: number) {
-    if ((await this.getCountCategory(id)) <= 0) {
-      throw new notFoundExeption(`category with id : ${id} not found`);
-    }
+    const category = await this.getCountCategory(id);
 
     //? close relations this category when delete
     await prisma.category.update({
@@ -104,14 +105,18 @@ class CategoryServer {
     });
   }
 
-  private async getCountCategory(id: number): Promise<number> {
-    const count = await prisma.category.count({
-      where: {
-        id,
+  private async getCountCategory(id: number): Promise<Category> {
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        attributes: true,
       },
     });
 
-    return count;
+    if (!category) {
+      throw new notFoundExeption(`category with id: ${id} not found`);
+    }
+    return category;
   }
 
   public async getAttributesOfCategory(id: number) {

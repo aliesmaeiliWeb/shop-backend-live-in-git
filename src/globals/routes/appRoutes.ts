@@ -5,8 +5,6 @@ import categoryRoute from "../../features/category/rote/category.routers";
 import productRoute from "../../features/product/route/product.route";
 import attributeRoute from "../../features/category/rote/attribute.router";
 
-
-
 const appRoutes = (app: Application) => {
     app.use('/api/v1/users', userRoute);
     app.use('/api/v1/auth', authRoute);

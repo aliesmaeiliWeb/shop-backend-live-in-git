@@ -1,17 +1,23 @@
 import { IProductsBody } from "../../features/product/interface/product.interface";
 import { Product } from "../../generated/prisma";
 import { UtilsConstant } from "../../globals/constants/utils";
+import { Helper } from "../../globals/helpers/helpers";
+import { checkpermission } from "../../globals/middlewares/auth.middleware";
 import { notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 
 class ProductService {
-  public async add(requestBody: IProductsBody): Promise<Product> {
+  public async add(
+    requestBody: IProductsBody,
+    currentUser: UserPayload,
+    mainImage: Express.Multer.File | undefined
+  ): Promise<Product> {
     const {
       name,
       longDescription,
       shortDescription,
       quantity,
-      main_Image,
+      price,
       categoryId,
     } = requestBody;
 
@@ -20,9 +26,11 @@ class ProductService {
         name,
         longDescription,
         shortDescription,
-        quantity,
-        main_Image,
-        categoryId,
+        quantity: parseInt(quantity),
+        main_Image: mainImage?.filename ? mainImage.filename : "",
+        categoryId: parseInt(categoryId),
+        shopId: currentUser.id,
+        price: parseFloat(price),
       },
     });
     return product;
@@ -55,22 +63,16 @@ class ProductService {
     });
     return product;
   }
-
+  //? => DRY ===> same work width getProduct 
   public async getOne(id: number): Promise<Product> {
-    const product: Product | null = await prisma.product.findFirst({
-      where: {
-        id,
-      },
-    });
-
-    if (!product) {
-      throw new notFoundExeption(`product has ID: ${id} not found`);
-    }
-
-    return product;
+    return this.getProduct(id);
   }
 
-  public async edit(id: number, requestBody: IProductsBody): Promise<Product> {
+  public async edit(
+    id: number,
+    requestBody: IProductsBody,
+    currentUser: UserPayload
+  ): Promise<Product> {
     const {
       name,
       longDescription,
@@ -78,11 +80,11 @@ class ProductService {
       main_Image,
       quantity,
       categoryId,
+      price,
     } = requestBody;
+    const currentProduct = await this.getProduct(id);
 
-    if ((await this.getCountProduct(id)) <= 0) {
-      throw new notFoundExeption(`product has ${id} not found`);
-    }
+    Helper.checkPermission(currentProduct, currentUser);
 
     const product = await prisma.product.update({
       where: { id },
@@ -91,14 +93,32 @@ class ProductService {
         longDescription,
         shortDescription,
         main_Image,
-        quantity,
-        categoryId,
+        quantity: parseInt(quantity),
+        categoryId: parseInt(categoryId),
+        price: parseFloat(price),
       },
     });
     return product;
   }
 
-  public async remove(id: number) {
+  private async getProduct(id: number): Promise<Product> {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new notFoundExeption(`product width id: ${id} not found!`);
+    };
+
+    return product;
+  }
+
+  public async remove(id: number, currentUser: UserPayload) {
+
+    const currentProduct = await this.getProduct(id);
+
+    Helper.checkPermission(currentProduct, currentUser);
+
     await prisma.product.delete({
       where: {
         id,
@@ -106,12 +126,12 @@ class ProductService {
     });
   }
 
-  private async getCountProduct(id: number) {
-    const count: number = await prisma.product.count({
-      where: { id },
+  public async getMyProduct(currentUser: UserPayload) {
+    const products = await prisma.product.findMany({
+      where: { shopId: currentUser.id },
     });
 
-    return count;
+    return products
   }
 }
 

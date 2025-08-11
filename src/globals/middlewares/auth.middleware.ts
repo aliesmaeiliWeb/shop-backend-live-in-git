@@ -3,30 +3,25 @@ import { forbiddenExeption, unauthorizedExeption } from "./error.middleware";
 import jwt from "jsonwebtoken";
 
 export function verifyUser(req: Request, res: Response, next: NextFunction) {
-  // console.log("--- Verifying Request ---");
-  // console.log("Raw Authorization Header:", req.headers["authorization"]);
   if (
+    //+ check headers 
     !req.headers["authorization"] ||
     !req.headers["authorization"].startsWith("Bearer")
   ) {
     throw new unauthorizedExeption("Token is invalid , please login again");
   }
 
+  //+ get token and remove bearer
   const token = req.headers["authorization"].split(" ")[1];
 
-  // console.log("🔑 Token Extracted for Verification:", token);
-  // console.log("--------------------------");
-
   try {
-    console.log("SECRET KEY USED FOR VERIFICATION:", process.env.JWT_SECRET);
+    //+ decode jwt token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload; //! این چطور اومد تحقیق بشه
+    //+ data information send req.query for read system
     req.currentUser = decoded;
 
     next();
   } catch (error) {
-    // console.log("🔥🔥🔥 JWT VERIFICATION FAILED 🔥🔥🔥");
-    // console.log("The actual error object is:", error);
-
     throw new unauthorizedExeption("Token is invalid , please login again");
   }
 }
@@ -41,3 +36,15 @@ export function checkUserAthunticated(
   }
   next();
 }
+
+export function checkpermission (...roles: string[]) {
+  return (req:Request, res:Response, next: NextFunction) => {
+    //+ check role user in to the req.currentUser
+    if (!roles.includes(req.currentUser.role)) {
+      throw new forbiddenExeption('you can not perform this action');
+    }
+
+    next();
+  }
+}
+
