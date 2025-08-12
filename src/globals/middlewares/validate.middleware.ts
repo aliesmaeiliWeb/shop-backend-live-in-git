@@ -9,11 +9,28 @@ const formatJoiMessage = (joiMessage: ValidationErrorItem[]) => {
 export const validateShema = (schema: Schema) => {
   return (req: Request, res: Response, next: NextFunction) => {
     //! for upload images
-    if (req.file) {
-      if (schema === CategorySchema) {
-        req.body.imageUrl = req.file.filename;
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        if (req.files.length > 0) {
+          if (schema === CategorySchema) {
+            req.body.imageUrl = req.files[0].filename;
+          } else {
+            req.body.main_Image = req.files.map(
+              (file: Express.Multer.File) => file.filename
+            );
+          }
+        }
       } else {
-        req.body.main_Image = req.file.filename;
+        const mainImages = req.files["main_Image"];
+        if (mainImages && mainImages.length > 0) {
+          if (schema === CategorySchema) {
+            req.body.imageUrl = mainImages[0].filename;
+          } else {
+            req.body.main_Image = mainImages.map(
+              (file: Express.Multer.File) => file.filename
+            );
+          }
+        }
       }
     }
 

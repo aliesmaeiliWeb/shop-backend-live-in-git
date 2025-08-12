@@ -1,4 +1,4 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { productController } from "../controller/product.controller";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
@@ -8,13 +8,38 @@ import {
   verifyUser,
 } from "../../../globals/middlewares/auth.middleware";
 import { upload } from "../../../globals/helpers/multer";
+import parseDynamicAttribute from "../../../globals/middlewares/productChange.middleware";
+
+//! mock
+interface FakeUserPayload {
+  id: number;
+  role: string;
+}
+
+const mockUserMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  req.currentUser = {
+    id: 18,
+    role: "Admin",
+    email: "shop3@gmail.com",
+    name: "Test",
+    lastName: "User",
+    avatar: 'alikcatar'
+  };
+  next();
+};
 
 const productRoute = express.Router();
 
 productRoute.post(
   "/",
-  verifyUser,
-  upload.single('main_Image'),
+  // verifyUser,
+  mockUserMiddleware,
+  upload.array("main_Image", 15),
+  parseDynamicAttribute,
   checkpermission("Shop", "Admin"),
   validateShema(productSchema),
   asyncWrapper(productController.create)
@@ -23,21 +48,21 @@ productRoute.get("/", asyncWrapper(productController.read));
 productRoute.get("/:id", asyncWrapper(productController.readOne));
 productRoute.put(
   "/:id",
-  verifyUser,
-  upload.single('main_Image'),
+  // verifyUser,
+  upload.single("main_Image"),
   checkpermission("Shop", "Admin"),
   validateShema(productSchema),
   asyncWrapper(productController.update)
 );
 productRoute.delete(
   "/:id",
-  verifyUser,
+  // verifyUser,
   checkpermission("Shop", "Admin"),
   asyncWrapper(productController.delete)
 );
 productRoute.get(
   "/my",
-  verifyUser,
+  // verifyUser,
   asyncWrapper(productController.readMyProducts)
 );
 
