@@ -6,11 +6,8 @@ import { UtilsConstant } from "../../../globals/constants/utils";
 class ProductController {
   //! add product
   public async create(req: Request, res: Response) {
-    const product = await productService.add(
-      req.body,
-      req.currentUser,
-      req.file
-    );
+    const files = req.files as Express.Multer.File[];
+    const product = await productService.add(req.body, req.currentUser, files);
 
     return res.status(HTTP_STATUS.create).json({
       message: "create product",
@@ -38,7 +35,7 @@ class ProductController {
       ? String(req.query.filterValue)
       : "";
 
-      console.log(filterValueParams, filterBy);
+    console.log(filterValueParams, filterBy);
 
     if (filterBy && filterValueParams) {
       //+ "lt.5" ===> split("0") => ["lt", "5"]
@@ -83,10 +80,12 @@ class ProductController {
 
   //! update product
   public async update(req: Request, res: Response) {
+    const files = req.files as Express.Multer.File[];
     const product = await productService.edit(
       parseInt(req.params.id),
       req.body,
-      req.currentUser
+      req.currentUser,
+      files
     );
 
     res.status(HTTP_STATUS.ok).json({
@@ -101,6 +100,18 @@ class ProductController {
 
     return res.status(HTTP_STATUS.ok).json({
       message: "delete product",
+    });
+  }
+
+  //! delete image
+  public async deleteImage(req: Request, res: Response) {
+    const { productId } = req.params;
+    const { imageUrl } = req.body;
+
+    await productService.removeImage(parseInt(productId), imageUrl);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "عکس با موفقیت حذف شد",
     });
   }
 

@@ -15,6 +15,7 @@ import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
 import hpp from "hpp";
+import path from "path";
 
 class server {
   private app: Application;
@@ -53,6 +54,16 @@ class server {
     this.app.use(mongoSanitize());
     this.app.use(xss());
     this.app.use(hpp());
+
+    this.app.use(
+      "/image",
+      (req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        next();
+      },
+      express.static(path.resolve(process.cwd(), "image"))
+    );
+    
   }
   private setupRoutes(): void {
     appRoutes(this.app);

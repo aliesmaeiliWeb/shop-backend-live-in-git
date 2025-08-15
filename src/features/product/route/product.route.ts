@@ -48,8 +48,10 @@ productRoute.get("/", asyncWrapper(productController.read));
 productRoute.get("/:id", asyncWrapper(productController.readOne));
 productRoute.put(
   "/:id",
+  mockUserMiddleware,
   // verifyUser,
-  upload.single("main_Image"),
+  upload.array("main_Image", 15),
+  parseDynamicAttribute,
   checkpermission("Shop", "Admin"),
   validateShema(productSchema),
   asyncWrapper(productController.update)
@@ -65,5 +67,9 @@ productRoute.get(
   // verifyUser,
   asyncWrapper(productController.readMyProducts)
 );
+productRoute.delete(
+  "/:productId/images",
+  asyncWrapper(productController.deleteImage)
+)
 
 export default productRoute;

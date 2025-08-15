@@ -1,3 +1,5 @@
+import path from "path";
+import fs from "fs/promises";
 import { IProductsBody } from "../../features/product/interface/product.interface";
 import { Product } from "../../generated/prisma";
 import { UtilsConstant } from "../../globals/constants/utils";
@@ -5,12 +7,14 @@ import { Helper } from "../../globals/helpers/helpers";
 import { checkpermission } from "../../globals/middlewares/auth.middleware";
 import { notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
+import { fileRemoveService } from "./file-remove.service";
+import { json } from "stream/consumers";
 
 class ProductService {
   public async add(
     requestBody: IProductsBody,
     currentUser: UserPayload,
-    mainImage: Express.Multer.File | undefined
+    files: Express.Multer.File[]
   ): Promise<Product> {
     const {
       name,
@@ -19,6 +23,7 @@ class ProductService {
       quantity,
       price,
       categoryId,
+      dynamicAttributes,
     } = requestBody;
 
     const product: Product = await prisma.product.create({
@@ -27,10 +32,11 @@ class ProductService {
         longDescription,
         shortDescription,
         quantity: parseInt(quantity),
-        main_Image: mainImage?.filename ? mainImage.filename : "",
+        main_Image: JSON.stringify(files.map((file) => file.filename)),
         categoryId: parseInt(categoryId),
         shopId: currentUser.id,
         price: parseFloat(price),
+        dynamicAttributes: JSON.stringify(dynamicAttributes),
       },
     });
     return product;
@@ -63,7 +69,7 @@ class ProductService {
     });
     return product;
   }
-  //? => DRY ===> same work width getProduct 
+  //? => DRY ===> same work width getProduct
   public async getOne(id: number): Promise<Product> {
     return this.getProduct(id);
   }
@@ -71,7 +77,8 @@ class ProductService {
   public async edit(
     id: number,
     requestBody: IProductsBody,
-    currentUser: UserPayload
+    currentUser: UserPayload,
+    files: Express.Multer.File[]
   ): Promise<Product> {
     const {
       name,
@@ -81,10 +88,19 @@ class ProductService {
       quantity,
       categoryId,
       price,
+      dynamicAttributes,
     } = requestBody;
     const currentProduct = await this.getProduct(id);
 
+    if (!currentProduct) {
+      throw new notFoundExeption(`محصول با آیدی ${id} یافت نشد`);
+    }
+
     Helper.checkPermission(currentProduct, currentUser);
+
+    const newImageFileName = files ? files.map((file) => file.filename) : [];
+    const existingImage = JSON.parse(currentProduct.main_Image || "[]");
+    const allImage = [...existingImage, ...newImageFileName];
 
     const product = await prisma.product.update({
       where: { id },
@@ -92,10 +108,11 @@ class ProductService {
         name,
         longDescription,
         shortDescription,
-        main_Image,
+        main_Image: JSON.stringify(allImage),
         quantity: parseInt(quantity),
         categoryId: parseInt(categoryId),
         price: parseFloat(price),
+        dynamicAttributes: JSON.stringify(dynamicAttributes),
       },
     });
     return product;
@@ -108,13 +125,12 @@ class ProductService {
 
     if (!product) {
       throw new notFoundExeption(`product width id: ${id} not found!`);
-    };
+    }
 
     return product;
   }
 
   public async remove(id: number, currentUser: UserPayload) {
-
     const currentProduct = await this.getProduct(id);
 
     Helper.checkPermission(currentProduct, currentUser);
@@ -126,12 +142,53 @@ class ProductService {
     });
   }
 
+  public async removeImage(productId: number, imageUrlDelete: string) {
+    const product = await prisma.product.findUnique({
+      where: {
+        id: productId,
+      },
+    });
+
+    if (!product) {
+      throw new notFoundExeption(`محصول با آیدی  ${productId} یافت نشد`);
+    }
+
+    const existingImage: string[] = JSON.parse(product.main_Image || "[]");
+    const filenameToDelete = path.basename(imageUrlDelete);
+    const updatedImage = existingImage.filter(
+      (img) => path.basename(img) !== filenameToDelete
+    );
+
+    await prisma.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        main_Image: JSON.stringify(updatedImage),
+      },
+    });
+
+    // try {
+    //   const filePath = path.join(
+    //     __dirname,
+    //     "/image/products",
+    //     filenameToDelete
+    //   );
+    //   await fs.unlink(filePath);
+    // } catch (e) {
+    //   console.error("خطا در حذف فایل");
+    // }
+    await fileRemoveService.deleteFileRemoveImage(filenameToDelete);
+
+    return { success: true };
+  }
+
   public async getMyProduct(currentUser: UserPayload) {
     const products = await prisma.product.findMany({
       where: { shopId: currentUser.id },
     });
 
-    return products
+    return products;
   }
 }
 

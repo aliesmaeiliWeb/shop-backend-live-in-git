@@ -5,5 +5,6 @@ export interface IProductsBody {
   quantity: string;
   main_Image: string;
   categoryId: string;
-  price: string
+  price: string,
+  dynamicAttributes?: string;
 };
