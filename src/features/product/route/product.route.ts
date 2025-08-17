@@ -9,6 +9,7 @@ import {
 } from "../../../globals/middlewares/auth.middleware";
 import { upload } from "../../../globals/helpers/multer";
 import parseDynamicAttribute from "../../../globals/middlewares/productChange.middleware";
+import { commentRoute } from "../../comment/route/comment.route";
 
 //! mock
 interface FakeUserPayload {
@@ -70,6 +71,8 @@ productRoute.get(
 productRoute.delete(
   "/:productId/images",
   asyncWrapper(productController.deleteImage)
-)
+);
+
+productRoute.use('/:productId/comments', commentRoute);
 
 export default productRoute;
