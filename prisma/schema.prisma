@@ -21,19 +21,21 @@ enum Role {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   name      String
-  email     String    @unique
+  email     String     @unique
   lastName  String
   password  String?
   avatar    String
-  role      Role      @default(Admin)
+  role      Role       @default(Admin)
   // for relation
   products  Product[]
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   comments  Comment[]
+  order     Order[]
+  wishlist  WishList[]
 }
 
 model Attribute {
@@ -72,7 +74,12 @@ model Product {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime? @default(now()) @updatedAt
 
-  comments Comment[]
+  comments  Comment[]
+  orderItem orderItems[]
+
+  productVariants ProductVariant[]
+
+  wishlist WishList[]
 
   dynamicAttributes String? @db.Text
 }
@@ -97,4 +104,74 @@ model Comment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+//+ order section
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  totalPrice      Float
+  status          OrderStatus @default(PENDING)
+  shippingAddress String
+  customerName    String
+  customerPhone   String
+  customerEmail   String
+  pinCode         String?
+
+  paymentId String? @unique
+
+  //+ user relation
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  //+ on order many itemse
+  items orderItems[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model orderItems {
+  id              Int     @id @default(autoincrement())
+  quantity        Int // number of sell product
+  productTitle    String
+  priceAtPurchase Float
+  orderId         Int
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productId       Int
+  product         Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+//+ product variant
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  name      String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId Int
+
+  productVariantItems ProductVariantItems[]
+}
+
+model ProductVariantItems {
+  id             Int            @id @default(autoincrement())
+  name           String
+  productVariant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  variantId      Int
+}
+
+model WishList {
+  userId    Int
+  productId Int
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId]) // for no repead 
 }

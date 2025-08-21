@@ -60,13 +60,26 @@ class CommentService {
   }
 
   public async getAllComments(options: any) {
-    const { status, rating, productId, page = 1, limit = 10 } = options;
+    const {
+      status,
+      rating,
+      categoryId,
+      productId,
+      page = 1,
+      limit = 10,
+    } = options;
     const skip = (page - 1) * limit;
     const whereClause: any = {};
 
     if (status) whereClause.status = status;
     if (rating) whereClause.rating = parseInt(rating, 10);
     if (productId) whereClause.productId = productId;
+
+    if (categoryId) {
+      whereClause.product = {
+        categoryId: categoryId,
+      };
+    }
 
     const comments = await prisma.comment.findMany({
       where: whereClause,

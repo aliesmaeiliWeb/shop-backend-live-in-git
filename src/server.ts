@@ -16,6 +16,7 @@ import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
 import hpp from "hpp";
 import path from "path";
+import { HTTP_STATUS } from "./globals/constants/http";
 
 class server {
   private app: Application;
@@ -63,7 +64,6 @@ class server {
       },
       express.static(path.resolve(process.cwd(), "image"))
     );
-    
   }
   private setupRoutes(): void {
     appRoutes(this.app);
@@ -83,6 +83,11 @@ class server {
           return res.status(err.statusCode).json(err.getErrorResponse());
         }
         next();
+
+        return res.status(HTTP_STATUS.internal_server_error).json({
+          message: "internall Error",
+          data:{err}
+        })
       }
     );
   }

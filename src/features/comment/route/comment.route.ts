@@ -44,7 +44,8 @@ commentRoute.get(
 
 commentRoute.post(
   "/",
-  verifyUser,
+  // verifyUser,
+  mockUserMiddleware,
   validateShema(createCommentSchema),
   asyncWrapper(commentController.create.bind(commentController))
 );
@@ -57,11 +58,13 @@ adminCommentRoute.get(
 
 adminCommentRoute.patch(
   "/:commentId/status",
-  verifyUser,
-  checkpermission("Shop", "Admin"),
+  // verifyUser,
+  // checkpermission("Shop", "Admin"),
+  mockUserMiddleware,
   validateShema(updateCommentStatusSchema),
-  verifyUser,
   asyncWrapper(commentController.updateStatus.bind(commentController))
 );
 
 export { commentRoute, adminCommentRoute };
+
+//! verifying checked!

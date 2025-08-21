@@ -5,6 +5,10 @@ import categoryRoute from "../../features/category/rote/category.routers";
 import productRoute from "../../features/product/route/product.route";
 import attributeRoute from "../../features/category/rote/attribute.router";
 import { adminCommentRoute, commentRoute } from "../../features/comment/route/comment.route";
+import orderRouter from "../../features/order/route/order.route";
+import productVariantRoute from "../../features/product-variant/route/product-variant-route";
+import productVariantItemRoute from "../../features/product-variant/route/product-variant-item-route";
+import wishListRouter from "../../features/wishList/route/wishlist.route";
 
 const appRoutes = (app: Application) => {
     app.use('/api/v1/users', userRoute);
@@ -13,6 +17,10 @@ const appRoutes = (app: Application) => {
     app.use('/api/v1/products', productRoute);
     app.use('/api/v1/attributes', attributeRoute);
     app.use('/api/v1/comments', adminCommentRoute);
+    app.use('/api/v1/order', orderRouter);
+    app.use('/api/v1/productVariant', productVariantRoute);
+    app.use('/api/v1/productVariantItem', productVariantItemRoute);
+    app.use('/api/v1/wishlist', wishListRouter);
 }
 
 export default appRoutes;

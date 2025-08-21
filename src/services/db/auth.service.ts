@@ -8,6 +8,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import {
   BadRequestException,
+  forbiddenExeption,
+  notFoundExeption,
   unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
 
@@ -58,6 +60,16 @@ class AuthService {
   public async addUser(requestBody: IAuthRegister) {
     const { email, name, lastName, password, avatar } = requestBody;
 
+    const userByEmail: User | null = await this.getUserByEmail(email);
+
+    if (!userByEmail) {
+      throw new notFoundExeption("email must be unique");
+    }
+
+    if (await authService.isEmailAlreadyExist(email)) {
+      throw new BadRequestException("email must be unique");
+    }
+
     const hashedPass = await bcrypt.hash(password, 10);
 
     const lowercasedEmail = email.toLowerCase();
@@ -96,6 +108,11 @@ class AuthService {
     if (!user) {
       throw new BadRequestException("invalid credentials");
     }
+
+    if (!user.isActive) {
+      throw new forbiddenExeption('this account was banned')
+    }
+
     //? check password
     const isMatchPassword: boolean = await bcrypt.compare(
       requestBody.password,
@@ -142,7 +159,6 @@ class AuthService {
 
   //! refresh token logic
   public async refreshAccessToken(token: string) {
-
     try {
       const decoded = jwt.verify(
         token,

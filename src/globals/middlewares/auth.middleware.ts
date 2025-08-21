@@ -1,10 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import { forbiddenExeption, unauthorizedExeption } from "./error.middleware";
+import {
+  forbiddenExeption,
+  notFoundExeption,
+  unauthorizedExeption,
+} from "./error.middleware";
 import jwt from "jsonwebtoken";
+import { userService } from "../../services/db/user.service";
 
 export function verifyUser(req: Request, res: Response, next: NextFunction) {
   if (
-    //+ check headers 
+    //+ check headers
     !req.headers["authorization"] ||
     !req.headers["authorization"].startsWith("Bearer")
   ) {
@@ -37,14 +42,33 @@ export function checkUserAthunticated(
   next();
 }
 
-export function checkpermission (...roles: string[]) {
-  return (req:Request, res:Response, next: NextFunction) => {
+export function checkpermission(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
     //+ check role user in to the req.currentUser
     if (!roles.includes(req.currentUser.role)) {
-      throw new forbiddenExeption('you can not perform this action');
+      throw new forbiddenExeption("you can not perform this action");
     }
 
     next();
-  }
+  };
 }
 
+export async function preventInActiveUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const user = await userService.get(req.currentUser.id);
+
+  if (!user) {
+    throw new notFoundExeption(
+      `user doesnot exist widht id: ${req.currentUser.id}`
+    );
+  }
+
+  if (!user.isActive) {
+    throw new forbiddenExeption(`you was banned`);
+  }
+
+  next();
+}

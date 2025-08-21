@@ -35,7 +35,7 @@ class ProductController {
       ? String(req.query.filterValue)
       : "";
 
-    console.log(filterValueParams, filterBy);
+    // console.log(filterValueParams, filterBy);
 
     if (filterBy && filterValueParams) {
       //+ "lt.5" ===> split("0") => ["lt", "5"]

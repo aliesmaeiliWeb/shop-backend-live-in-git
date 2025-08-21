@@ -121,6 +121,13 @@ class ProductService {
   private async getProduct(id: number): Promise<Product> {
     const product = await prisma.product.findUnique({
       where: { id },
+      include: {
+        productVariants: {
+          include: {
+            productVariantItems: true
+          }
+        },
+      }
     });
 
     if (!product) {
