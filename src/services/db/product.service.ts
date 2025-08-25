@@ -96,7 +96,7 @@ class ProductService {
       throw new notFoundExeption(`محصول با آیدی ${id} یافت نشد`);
     }
 
-    Helper.checkPermission(currentProduct, currentUser);
+    Helper.checkPermission(currentProduct, 'userId', currentUser);
 
     const newImageFileName = files ? files.map((file) => file.filename) : [];
     const existingImage = JSON.parse(currentProduct.main_Image || "[]");
@@ -118,7 +118,7 @@ class ProductService {
     return product;
   }
 
-  private async getProduct(id: number): Promise<Product> {
+  public async getProduct(id: number): Promise<Product> {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -140,7 +140,7 @@ class ProductService {
   public async remove(id: number, currentUser: UserPayload) {
     const currentProduct = await this.getProduct(id);
 
-    Helper.checkPermission(currentProduct, currentUser);
+    Helper.checkPermission(currentProduct, 'userId', currentUser);
 
     await prisma.product.delete({
       where: {
@@ -189,6 +189,15 @@ class ProductService {
 
     return { success: true };
   }
+
+  // public async getProduct(id: number): Promise<Product | null> {
+  //   const product: Product |null = await prisma.product.findFirst({
+  //     where: {id}
+  //   });
+
+  //   if (!product) return null;
+  //   return product
+  // }
 
   public async getMyProduct(currentUser: UserPayload) {
     const products = await prisma.product.findMany({

@@ -8,15 +8,20 @@ import {
   preventInActiveUser,
   verifyUser,
 } from "../../../globals/middlewares/auth.middleware";
+import { uploadAvatar } from "../../../globals/helpers/multer";
 
 const userRoute = express.Router();
-
 
 //+ global middleware ===> it affects all routes
 userRoute.use(verifyUser);
 userRoute.use(preventInActiveUser);
 
-userRoute.post('/change-password', userController.changePassword);
+userRoute.post("/change-password", userController.changePassword);
+userRoute.post(
+  "/change-avatar",
+  uploadAvatar.single("avatar"),
+  userController.uploadAvatar
+);
 userRoute.post(
   "/",
   // verifyUser,

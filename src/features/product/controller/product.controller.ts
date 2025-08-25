@@ -115,6 +115,12 @@ class ProductController {
     });
   }
 
+  // public async getProduct(req:Request, res: Response) {
+  //   const {id} = req.params.id;
+
+  //   const product = await productService.
+  // }
+
   public async readMyProducts(req: Request, res: Response) {
     const products = await productService.getMyProduct(req.currentUser);
 

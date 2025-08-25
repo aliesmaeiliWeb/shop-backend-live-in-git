@@ -25,7 +25,7 @@ class ProductVariantItemService {
       );
     }
 
-    Helper.checkPermission(currentProduct!, currentUser);
+    Helper.checkPermission(currentProduct!, 'userId', currentUser);
 
     const variantItem: ProductVariantItems =
       await prisma.productVariantItems.create({
@@ -55,7 +55,7 @@ class ProductVariantItemService {
       );
     }
 
-    Helper.checkPermission(currentProduct!, currentUser);
+    Helper.checkPermission(currentProduct!, 'userId', currentUser);
 
     const variant: IProductVariant | null = await prisma.productVariant.findFirst({
       where: {

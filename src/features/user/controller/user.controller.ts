@@ -7,6 +7,9 @@ import { userService } from "../../../services/db/user.service";
 
 class UserController {
   public async createUser(req: Request, res: Response, next:NextFunction) {
+    console.log(req.file);
+    return;
+
    const newUser = await userService.add(req.body);
 
     res.status(HTTP_STATUS.create).json({
@@ -43,6 +46,14 @@ class UserController {
 
     return res.status(HTTP_STATUS.ok).json({
       message: "delete user successfully"
+    })
+  }
+
+  public async uploadAvatar(req:Request, res:Response) {
+    await userService.editAvatar(req.file, req.currentUser);
+
+    res.status(HTTP_STATUS.ok).json({
+      message: "uploaded avatar successfully"
     })
   }
 }
