@@ -1,4 +1,4 @@
-import { User } from "../../generated/prisma";
+import { Role, User } from "../../generated/prisma";
 import { prisma } from "../../prisma";
 import bcrypt from "bcrypt";
 import { authService } from "./auth.service";
@@ -7,17 +7,30 @@ import {
   forbiddenExeption,
   notFoundExeption,
 } from "../../globals/middlewares/error.middleware";
-import { IUserCreateBody, IUserUpdateBody, IUserUpdatePasswordBody } from "../../features/user/interface/user.interface";
+import {
+  IUserCreateBody,
+  IUserUpdateBody,
+  IUserUpdatePasswordBody,
+} from "../../features/user/interface/user.interface";
 
 class UserService {
   public async add(requestBody: IUserCreateBody) {
-    const { email, name, lastName, avatar, password } = requestBody;
+    const {
+      email,
+      name,
+      lastName,
+      avatar,
+      password,
+      role: roleStr,
+    } = requestBody;
 
     if (await authService.isEmailAlreadyExist(email)) {
       throw new BadRequestException("email must be unique");
     }
 
     const hasHedPassword: string = await bcrypt.hash(password, 10);
+
+    const role: Role = Role[roleStr as keyof typeof Role];
 
     //? insert to DB
     const newUser: User = await prisma.user.create({
@@ -27,16 +40,21 @@ class UserService {
         lastName,
         avatar,
         password: hasHedPassword,
+        role,
       },
     });
 
     return this.returnUser(newUser);
   }
 
-  public async edit(id: number, requestBody: IUserUpdateBody, currentUser: UserPayload) {
+  public async edit(
+    id: number,
+    requestBody: IUserUpdateBody,
+    currentUser: UserPayload
+  ) {
     const { name, lastName, avatar } = requestBody;
 
-    if (currentUser.id !== id && currentUser.role !== 'Admin') {
+    if (currentUser.id !== id && currentUser.role !== "Admin") {
       throw new forbiddenExeption("you cannot perform this actoin");
     }
 
@@ -52,7 +70,10 @@ class UserService {
     return this.returnUser(user);
   }
 
-  public async editPassword(requestBody: IUserUpdatePasswordBody, currentUser: UserPayload) {
+  public async editPassword(
+    requestBody: IUserUpdatePasswordBody,
+    currentUser: UserPayload
+  ) {
     const { currentPassword, newPassword, confirmNewPassword } = requestBody;
 
     const userInDB = await this.get(currentUser.id);
@@ -86,8 +107,8 @@ class UserService {
 
   //+ just inActive user => not remove
   public async remove(id: number, currentUser: UserPayload) {
-    if (currentUser.id !== id && currentUser.role !== 'Admin') {
-      throw new forbiddenExeption("you cannot perform this actoin"); 
+    if (currentUser.id !== id && currentUser.role !== "Admin") {
+      throw new forbiddenExeption("you cannot perform this actoin");
     }
     await prisma.user.update({
       where: { id },
@@ -95,11 +116,14 @@ class UserService {
     });
   }
 
-  public async get(id: number, include= {}) {
-    const user = await prisma.user.findFirst({
-      where: { id },
-      include
-    });
+  public async get(id: number, include?: Record<string, boolean>) {
+    const query: any = { where: { id } };
+
+    if (include && Object.keys(include).length > 0) {
+      query.include = include;
+    }
+
+    const user = await prisma.user.findFirst(query);
     return user;
   }
 
@@ -113,19 +137,22 @@ class UserService {
     };
   }
 
-  public async editAvatar(file: Express.Multer.File | undefined, currentUser: UserPayload) {
+  public async editAvatar(
+    file: Express.Multer.File | undefined,
+    currentUser: UserPayload
+  ) {
     if (!file) {
-      throw new BadRequestException('please provide image');
+      throw new BadRequestException("please provide image");
     }
 
     console.log(file);
 
     await prisma.user.update({
-      where: {id: currentUser.id},
+      where: { id: currentUser.id },
       data: {
-        avatar: file.filename
-      }
-    })
+        avatar: file.filename,
+      },
+    });
   }
 }
 

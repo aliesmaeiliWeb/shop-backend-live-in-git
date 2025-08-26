@@ -7,9 +7,6 @@ import { userService } from "../../../services/db/user.service";
 
 class UserController {
   public async createUser(req: Request, res: Response, next:NextFunction) {
-    console.log(req.file);
-    return;
-
    const newUser = await userService.add(req.body);
 
     res.status(HTTP_STATUS.create).json({
@@ -17,7 +14,7 @@ class UserController {
       data: {
         newUser,
       },
-    }); // create
+    });
   }
 
   public async getMe(req: Request, res: Response, next:NextFunction) {

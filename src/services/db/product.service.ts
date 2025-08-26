@@ -1,17 +1,23 @@
 import path from "path";
 import fs from "fs/promises";
-import { IProductsBody } from "../../features/product/interface/product.interface";
-import { Product } from "../../generated/prisma";
+import {
+  ICreateSKUBody,
+  IProductsBody,
+} from "../../features/product/interface/product.interface";
+import { Product, ProductSKU } from "../../generated/prisma";
 import { UtilsConstant } from "../../globals/constants/utils";
 import { Helper } from "../../globals/helpers/helpers";
 import { checkpermission } from "../../globals/middlewares/auth.middleware";
-import { notFoundExeption } from "../../globals/middlewares/error.middleware";
+import {
+  notFoundExeption,
+  unauthorizedExeption,
+} from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 import { fileRemoveService } from "./file-remove.service";
 import { json } from "stream/consumers";
 
 class ProductService {
-  public async add(
+  public async creatBase(
     requestBody: IProductsBody,
     currentUser: UserPayload,
     files: Express.Multer.File[]
@@ -20,7 +26,6 @@ class ProductService {
       name,
       longDescription,
       shortDescription,
-      quantity,
       price,
       categoryId,
       dynamicAttributes,
@@ -31,7 +36,6 @@ class ProductService {
         name,
         longDescription,
         shortDescription,
-        quantity: parseInt(quantity),
         main_Image: JSON.stringify(files.map((file) => file.filename)),
         categoryId: parseInt(categoryId),
         shopId: currentUser.id,
@@ -40,6 +44,77 @@ class ProductService {
       },
     });
     return product;
+  }
+
+  //+ add sku to product
+  public async addSku(
+    productId: number,
+    requestBody: ICreateSKUBody,
+    currentUser: UserPayload
+  ): Promise<ProductSKU> {
+    const { sku, price, quantity } = requestBody;
+    const product = await this.getOne(productId);
+
+    if (product.shopId !== currentUser.id) {
+      throw new unauthorizedExeption("you are not the owner of this product");
+    }
+
+    return await prisma.productSKU.create({
+      data: {
+        productId,
+        sku,
+        price: parseFloat(price),
+        quantity: parseInt(quantity),
+      },
+    });
+  }
+
+  public async editSku(
+    skuId: number,
+    requestBody: ICreateSKUBody,
+    currentUser: UserPayload
+  ): Promise<ProductSKU> {
+    const { price, quantity } = requestBody;
+
+    const sku = await prisma.productSKU.findUnique({
+      where: { id: skuId },
+      include: {
+        product: true,
+      },
+    });
+
+    if (!sku) {
+      throw new notFoundExeption(`sku with id: ${skuId} not found`)
+    }
+
+    if (sku.product.shopId !== currentUser.id) {
+      throw new unauthorizedExeption("you are not the owner of this product")
+    }
+
+    return await prisma.productSKU.update({
+      where: {id: skuId},
+      data: {
+        price: price ? parseFloat(price) : undefined,
+        quantity: quantity ? parseInt(quantity) : undefined,
+      }
+    })
+  }
+
+  public async removeSku(skuId: number, currentUser: UserPayload): Promise<void> {
+    const sku = await prisma.productSKU.findUnique({
+      where: {id: skuId},
+      include: {product: true}
+    });
+
+    if (!sku) {
+      throw new notFoundExeption(`sku with id ${skuId} not found`)
+    }
+
+    if (sku.product.shopId !== currentUser.id) {
+      throw new unauthorizedExeption("you are not the owner of this product")
+    }
+
+    await prisma.productSKU.delete({where: {id: skuId}})
   }
 
   public async get(): Promise<Product[]> {
@@ -69,9 +144,19 @@ class ProductService {
     });
     return product;
   }
-  //? => DRY ===> same work width getProduct
-  public async getOne(id: number): Promise<Product> {
-    return this.getProduct(id);
+  //+ get product width all skus
+  public async getOne(id: number): Promise<Product & { skus: ProductSKU[] }> {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        skus: true,
+      },
+    });
+
+    if (!product) {
+      throw new notFoundExeption(`product with id : ${id} not found`);
+    }
+    return product;
   }
 
   public async edit(
@@ -85,7 +170,6 @@ class ProductService {
       longDescription,
       shortDescription,
       main_Image,
-      quantity,
       categoryId,
       price,
       dynamicAttributes,
@@ -96,7 +180,7 @@ class ProductService {
       throw new notFoundExeption(`محصول با آیدی ${id} یافت نشد`);
     }
 
-    Helper.checkPermission(currentProduct, 'userId', currentUser);
+    Helper.checkPermission(currentProduct, "shopId", currentUser);
 
     const newImageFileName = files ? files.map((file) => file.filename) : [];
     const existingImage = JSON.parse(currentProduct.main_Image || "[]");
@@ -109,7 +193,6 @@ class ProductService {
         longDescription,
         shortDescription,
         main_Image: JSON.stringify(allImage),
-        quantity: parseInt(quantity),
         categoryId: parseInt(categoryId),
         price: parseFloat(price),
         dynamicAttributes: JSON.stringify(dynamicAttributes),
@@ -122,12 +205,8 @@ class ProductService {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        productVariants: {
-          include: {
-            productVariantItems: true
-          }
-        },
-      }
+        skus: true,
+      },
     });
 
     if (!product) {
@@ -140,7 +219,7 @@ class ProductService {
   public async remove(id: number, currentUser: UserPayload) {
     const currentProduct = await this.getProduct(id);
 
-    Helper.checkPermission(currentProduct, 'userId', currentUser);
+    Helper.checkPermission(currentProduct, "shopId", currentUser);
 
     await prisma.product.delete({
       where: {

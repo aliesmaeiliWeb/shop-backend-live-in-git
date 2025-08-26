@@ -4,10 +4,14 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 import { UtilsConstant } from "../../../globals/constants/utils";
 
 class ProductController {
-  //! add product
-  public async create(req: Request, res: Response) {
+  //+ add product
+  public async createBaseProduct(req: Request, res: Response) {
     const files = req.files as Express.Multer.File[];
-    const product = await productService.add(req.body, req.currentUser, files);
+    const product = await productService.creatBase(
+      req.body,
+      req.currentUser,
+      files
+    );
 
     return res.status(HTTP_STATUS.create).json({
       message: "create product",
@@ -15,7 +19,7 @@ class ProductController {
     });
   }
 
-  //! read product
+  //+ read product
   public async read(req: Request, res: Response) {
     // const product = await productService.get(); //? normal get
 
@@ -68,7 +72,7 @@ class ProductController {
     });
   }
 
-  //! readone product
+  //+ readone product
   public async readOne(req: Request, res: Response) {
     const product = await productService.getOne(parseInt(req.params.id));
 
@@ -78,7 +82,7 @@ class ProductController {
     });
   }
 
-  //! update product
+  //+ update product
   public async update(req: Request, res: Response) {
     const files = req.files as Express.Multer.File[];
     const product = await productService.edit(
@@ -94,7 +98,7 @@ class ProductController {
     });
   }
 
-  //! delete product
+  //+ delete product
   public async delete(req: Request, res: Response) {
     await productService.remove(parseInt(req.params.id), req.currentUser);
 
@@ -103,7 +107,7 @@ class ProductController {
     });
   }
 
-  //! delete image
+  //+ delete image
   public async deleteImage(req: Request, res: Response) {
     const { productId } = req.params;
     const { imageUrl } = req.body;
@@ -127,6 +131,43 @@ class ProductController {
     return res.status(HTTP_STATUS.ok).json({
       message: "Get my products",
       data: products,
+    });
+  }
+
+  //+ add SKU
+  public async addSku(req: Request, res: Response) {
+    const sku = await productService.addSku(
+      parseInt(req.params.id),
+      req.body,
+      req.currentUser
+    );
+
+    return res.status(HTTP_STATUS.create).json({
+      message: "sku added successfully",
+      data: sku,
+    });
+  }
+
+  //+ edit SKU
+  public async editSku(req: Request, res: Response) {
+    const updatedSku = await productService.editSku(
+      parseInt(req.params.id),
+      req.body,
+      req.currentUser
+    );
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "sku updated successfully",
+      data: updatedSku,
+    });
+  }
+
+  //+ remove SKU
+  public async removeSku(req: Request, res: Response) {
+    await productService.removeSku(parseInt(req.params.id), req.currentUser);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "SKU removed successfully",
     });
   }
 }

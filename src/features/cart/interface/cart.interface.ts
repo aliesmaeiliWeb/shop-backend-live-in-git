@@ -1,6 +1,8 @@
 export interface ICartBody {
-  productId: number;
-  variant: string;
+  productSKUId: number;
   quantity: number;
-  totalPrice: number
+}
+
+export interface IUpdateCartItemBody {
+  quantity: number;
 }

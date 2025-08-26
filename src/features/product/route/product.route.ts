@@ -14,10 +14,19 @@ import { commentRoute } from "../../comment/route/comment.route";
 
 const productRoute = express.Router();
 productRoute.get("/", asyncWrapper(productController.read));
-productRoute.get("/my", verifyUser, asyncWrapper(productController.readMyProducts));
-productRoute.get("/:id", asyncWrapper(productController.readOne));
+productRoute.get(
+  "/:id",
+  asyncWrapper(productController.readOne.bind(productController))
+);
 
+//+ after login
 productRoute.use(verifyUser);
+productRoute.get(
+  "/my",
+  verifyUser,
+  asyncWrapper(productController.readMyProducts.bind(productController))
+);
+
 productRoute.use(checkpermission("Shop", "Admin"));
 productRoute.use(preventInActiveUser);
 
@@ -26,19 +35,36 @@ productRoute.post(
   upload.array("main_Image", 15),
   parseDynamicAttribute,
   validateShema(productSchema),
-  asyncWrapper(productController.create)
+  asyncWrapper(productController.createBaseProduct.bind(productController))
 );
-productRoute.put(
+productRoute.patch(
   "/:id",
   upload.array("main_Image", 15),
   parseDynamicAttribute,
   validateShema(productSchema),
-  asyncWrapper(productController.update)
+  asyncWrapper(productController.update.bind(productController))
 );
-productRoute.delete("/:id", asyncWrapper(productController.delete));
+productRoute.delete(
+  "/:id",
+  asyncWrapper(productController.delete.bind(productController))
+);
 productRoute.delete(
   "/:productId/images",
-  asyncWrapper(productController.deleteImage)
+  asyncWrapper(productController.deleteImage.bind(productController))
+);
+
+//+ SKU route
+productRoute.post(
+  "/:id/skus",
+  asyncWrapper(productController.addSku.bind(productController))
+);
+productRoute.patch(
+  "/skus/:skuId",
+  asyncWrapper(productController.editSku.bind(productController))
+);
+productRoute.delete(
+  "/skus/:skuId",
+  asyncWrapper(productController.removeSku.bind(productController))
 );
 
 productRoute.use("/:productId/comments", commentRoute);

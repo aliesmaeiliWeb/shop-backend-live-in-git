@@ -66,7 +66,6 @@ model Product {
   name             String
   longDescription  String    @db.Text
   shortDescription String
-  quantity         Int
   price            Float     @default(0)
   main_Image       String
   category         Category  @relation(fields: [categoryId], references: [id])
@@ -79,13 +78,23 @@ model Product {
   comments  Comment[]
   orderItem orderItems[]
 
-  productVariants ProductVariant[]
-
   wishlist WishList[]
 
   cartItem CartItem[]
 
   dynamicAttributes String? @db.Text
+
+  skus ProductSKU[]
+}
+
+model ProductSKU {
+  id        Int        @id @default(autoincrement())
+  sku       String     @unique // unik code for product
+  price     Float
+  quantity  Int
+  product   Product    @relation(fields: [productId], references: [id])
+  productId Int
+  cartItem  CartItem[]
 }
 
 enum CommentStatus {
@@ -154,21 +163,6 @@ model orderItems {
 }
 
 //+ product variant
-model ProductVariant {
-  id        Int     @id @default(autoincrement())
-  name      String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productId Int
-
-  productVariantItems ProductVariantItems[]
-}
-
-model ProductVariantItems {
-  id             Int            @id @default(autoincrement())
-  name           String
-  productVariant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  variantId      Int
-}
 
 model WishList {
   userId    Int
@@ -200,13 +194,15 @@ model Cart {
 }
 
 model CartItem {
-  id        Int     @id @default(autoincrement())
-  productId Int
-  cartId    Int
-  variant   String? @db.Text
-  price     Float
-  quantity  Int     @default(1)
+  id           Int        @id @default(autoincrement())
+  cartId       Int
+  price        Float
+  quantity     Int        @default(1)
+  productSKUId Int
+  cart         Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productSKU   ProductSKU @relation(fields: [productSKUId], references: [id])
+  Product      Product?   @relation(fields: [productId], references: [id])
+  productId    Int?
 
-  product Product @relation(fields: [productId], references: [id])
-  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  @@unique([cartId, productSKUId])
 }

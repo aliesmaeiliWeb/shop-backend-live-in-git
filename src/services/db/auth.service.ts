@@ -62,7 +62,7 @@ class AuthService {
 
     const userByEmail: User | null = await this.getUserByEmail(email);
 
-    if (!userByEmail) {
+    if (userByEmail) {
       throw new notFoundExeption("email must be unique");
     }
 

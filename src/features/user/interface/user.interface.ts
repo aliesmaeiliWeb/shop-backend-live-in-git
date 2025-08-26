@@ -1,9 +1,12 @@
+import { Role } from "../../../generated/prisma";
+
 export interface IUserCreateBody {
   email: string;
   password: string;
   name: string;
   lastName: string;
   avatar: string;
+  role: Role;
 }
 export interface IUserUpdateBody {
   name: string;
