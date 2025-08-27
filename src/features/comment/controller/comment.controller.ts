@@ -23,6 +23,29 @@ class CommentController {
     });
   }
 
+  public async update(req: Request, res: Response, next: NextFunction) {
+    const commentId = Number(req.params.commentId);
+    const updatedComment = await commentService.updateComment(
+      commentId,
+      req.body,
+      req.currentUser
+    );
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "Comment updated successfully.",
+      data: updatedComment,
+    });
+  }
+
+  public async delete(req: Request, res: Response, next: NextFunction) {
+    const commentId = Number(req.params.commentId);
+    await commentService.deleteComment(commentId, req.currentUser);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "Comment deleted successfully.",
+    });
+  }
+
   public async getForProduct(req: Request, res: Response, next: NextFunction) {
     const productId = Number(req.params.productId);
     const result = await commentService.getCommentsByProductId(
@@ -53,12 +76,10 @@ class CommentController {
       commentId,
       status
     );
-    res
-      .status(HTTP_STATUS.ok)
-      .json({
-        message: "Comment status updated successfully.",
-        data: updatedComment,
-      });
+    res.status(HTTP_STATUS.ok).json({
+      message: "Comment status updated successfully.",
+      data: updatedComment,
+    });
   }
 }
 

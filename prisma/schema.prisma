@@ -76,7 +76,6 @@ model Product {
   updatedAt        DateTime? @default(now()) @updatedAt
 
   comments  Comment[]
-  orderItem orderItems[]
 
   wishlist WishList[]
 
@@ -88,13 +87,14 @@ model Product {
 }
 
 model ProductSKU {
-  id        Int        @id @default(autoincrement())
-  sku       String     @unique // unik code for product
-  price     Float
-  quantity  Int
-  product   Product    @relation(fields: [productId], references: [id])
-  productId Int
-  cartItem  CartItem[]
+  id         Int          @id @default(autoincrement())
+  sku        String       @unique // unik code for product
+  price      Float
+  quantity   Int
+  product    Product      @relation(fields: [productId], references: [id])
+  productId  Int
+  cartItem   CartItem[]
+  orderItems orderItems[]
 }
 
 enum CommentStatus {
@@ -126,40 +126,66 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+  PROCESSING
+  REFUNDED
 }
 
 model Order {
-  id              Int         @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   totalPrice      Float
+  shippingCost    Float       @default(0)
+  taxAmount       Float       @default(0)
+  subtotal        Float
+  discountAmount  Float       @default(0)
   status          OrderStatus @default(PENDING)
-  shippingAddress String
+  shippingAddress String      @db.Text
   customerName    String
   customerPhone   String
   customerEmail   String
-  pinCode         String?
+  description     String?     @db.Text
+  trackingCode    String?
 
-  paymentId String? @unique
-
-  //+ user relation
   authorId Int
-  author   User @relation(fields: [authorId], references: [id], onDelete: Restrict)
-
-  //+ on order many itemse
-  items orderItems[]
+  autor    User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  items    orderItems[]
+  payments Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model orderItems {
-  id              Int     @id @default(autoincrement())
-  quantity        Int // number of sell product
+  id              Int    @id @default(autoincrement())
+  quantity        Int
   productTitle    String
+  sku             String
   priceAtPurchase Float
-  orderId         Int
-  order           Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  productId       Int
-  product         Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productSKUId Int
+  productSKU   ProductSKU @relation(fields: [productSKUId], references: [id], onDelete: Restrict)
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  gateway       String // نام درگاه پرداخت (مثلا Zarinpal)
+  transactionId String?       @unique // کد تراکنش از سمت درگاه
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 //+ product variant

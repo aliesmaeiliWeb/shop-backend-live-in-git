@@ -2,25 +2,21 @@ import express from "express";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { orderController } from "../controller/order.controller";
 import { verifyUser } from "../../../globals/middlewares/auth.middleware";
+import { validateShema } from "../../../globals/middlewares/validate.middleware";
+import { createOrderSchema } from "../schema/order.schema";
 
 const orderRouter = express.Router();
+orderRouter.use(verifyUser);
 
-orderRouter.get(
+orderRouter.post(
   "/",
-  verifyUser,
-  asyncWrapper(orderController.getAll.bind(orderController))
+  validateShema(createOrderSchema),
+  asyncWrapper(orderController.create.bind(orderController))
 );
 
 orderRouter.patch(
-  "/:id/status",
-  verifyUser,
-  asyncWrapper(orderController.updateStatus.bind(orderController))
-);
-
-orderRouter.get(
-  "/:id",
-  verifyUser,
-  asyncWrapper(orderController.getOne.bind(orderController))
-);
+  "/:id/cancel",
+  asyncWrapper(orderController.cancel.bind(orderController))
+)
 
 export default orderRouter;

@@ -13,29 +13,9 @@ import {
   updateCommentStatusSchema,
 } from "../schema/comment.schema";
 
-//! mock
-interface FakeUserPayload {
-  id: number;
-  role: string;
-}
-
-const mockUserMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  req.currentUser = {
-    id: 18,
-    role: "Admin",
-    email: "shop3@gmail.com",
-    name: "Test",
-    lastName: "User",
-    avatar: "alikcatar",
-  };
-  next();
-};
 
 const commentRoute = express.Router({ mergeParams: true });
+commentRoute.use(verifyUser);
 
 commentRoute.get(
   '/',
@@ -44,13 +24,27 @@ commentRoute.get(
 
 commentRoute.post(
   "/",
-  // verifyUser,
-  mockUserMiddleware,
   validateShema(createCommentSchema),
   asyncWrapper(commentController.create.bind(commentController))
 );
 
+commentRoute.patch(
+  "/:commentId",
+  validateShema(updateCommentStatusSchema),
+  asyncWrapper(commentController.update.bind(commentController))
+);
+
+commentRoute.delete(
+  "/:commentId",
+  asyncWrapper(commentController.delete.bind(commentController))
+);
+
+
+
+//! admin commentRoute
+
 const adminCommentRoute = express.Router();
+adminCommentRoute.use(verifyUser); 
 adminCommentRoute.get(
   "/",
   asyncWrapper(commentController.getAll.bind(commentController))
@@ -58,13 +52,9 @@ adminCommentRoute.get(
 
 adminCommentRoute.patch(
   "/:commentId/status",
-  // verifyUser,
-  // checkpermission("Shop", "Admin"),
-  mockUserMiddleware,
+  checkpermission("Shop","Admin"),
   validateShema(updateCommentStatusSchema),
   asyncWrapper(commentController.updateStatus.bind(commentController))
 );
 
 export { commentRoute, adminCommentRoute };
-
-//! verifying checked!

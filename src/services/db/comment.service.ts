@@ -1,12 +1,12 @@
-import { notFoundExeption } from "../../globals/middlewares/error.middleware";
+import {
+  ICommentData,
+  IUpdateCommentStatus,
+} from "../../features/comment/interface/comment.interface";
+import {
+  notFoundExeption,
+  unauthorizedExeption,
+} from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
-
-interface ICommentData {
-  text: string;
-  rating: number;
-  authorId: number;
-  productId: number;
-}
 
 class CommentService {
   public async createComment(data: ICommentData) {
@@ -20,6 +20,53 @@ class CommentService {
         authorId,
         status: "PENDING",
       },
+    });
+  }
+
+  public async updateComment(
+    commentId: number,
+    data: IUpdateCommentStatus,
+    currentUser: UserPayload
+  ) {
+    const { text, rating } = data;
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new notFoundExeption("comment not found");
+    }
+
+    if (comment.authorId !== currentUser.id) {
+      throw new unauthorizedExeption("you are not the author of this comment");
+    }
+
+    return prisma.comment.update({
+      where: { id: commentId },
+      data: {
+        text,
+        rating,
+        status: "PENDING",
+      },
+    });
+  }
+
+  public async deleteComment(commentId: number, currentUser: UserPayload) {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new notFoundExeption("comment not found");
+    }
+
+    if (comment.authorId !== currentUser.id) {
+      throw new unauthorizedExeption("you are not the author of this comment");
+    }
+
+    await prisma.comment.delete({
+      where: { id: commentId },
     });
   }
 

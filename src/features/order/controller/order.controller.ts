@@ -1,44 +1,26 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 import { orderService } from "../../../services/db/order.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
-import { BadRequestException } from "../../../globals/middlewares/error.middleware";
 
 class OrderController {
-  public async getAll(req: Request, res: Response, next: NextFunction) {
-    const result = await orderService.getAllOrders(req.query);
-    res.status(HTTP_STATUS.ok).json(result);
+  public async create(req:Request, res:Response) {
+    const order = await orderService.createOrder(req.body, req.currentUser);
+
+    return res.status(HTTP_STATUS.create).json({
+      message: "order create successfully and is pendign payment",
+      data: order
+    })
   }
 
-  public async getOne(req: Request, res: Response, next: NextFunction) {
-    const orderId = parseInt(req.params.id, 10);
-    if (isNaN(orderId)) {
-      throw new BadRequestException("invalid order id");
-    }
-    const order = await orderService.getOrderById(
-      orderId,
-      req.currentUser as any
-    );
-    res.status(HTTP_STATUS.ok).json(order);
-  }
+  public async cancel(req:Request, res: Response) {
+    const orderId = parseInt(req.params.id);
+    const updateOrder = await orderService.cancelOrder(orderId, req.currentUser);
 
-  public async updateStatus(req: Request, res: Response, next: NextFunction) {
-    const orderId = parseInt(req.params.id, 10);
-    const { status } = req.body;
-
-    if (isNaN(orderId)) {
-      throw new BadRequestException("invalid id");
-    }
-
-    if (!status) {
-      throw new BadRequestException("status is required");
-    }
-
-    const updateOrders = await orderService.updateOrders(orderId, status);
-    res.status(HTTP_STATUS.ok).json({
-      message: "order status updated successfully",
-      data: updateOrders,
-    });
+    return res.status(HTTP_STATUS.ok).json({
+      message: "your order has been successfully canceled",
+      data: updateOrder
+    })
   }
 }
 
-export const orderController: OrderController = new OrderController();
+export const orderController : OrderController = new OrderController();
