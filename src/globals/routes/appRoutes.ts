@@ -17,7 +17,7 @@ const appRoutes = (app: Application) => {
     app.use('/api/v1/products', productRoute);
     app.use('/api/v1/attributes', attributeRoute);
     app.use('/api/v1/comments', adminCommentRoute);
-    app.use('/api/v1/order', orderRouter);
+    app.use('/api/v1/orders', orderRouter);
     app.use('/api/v1/wishlist', wishListRouter);
     app.use('/api/v1/addresses', addressRouter);
     app.use('/api/v1/cart', cartRoute);

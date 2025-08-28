@@ -1,12 +1,25 @@
-import { ICreateOrder } from "../../features/order/interface/order.interface";
+import {
+  ICreateOrder,
+  ZarinpalRequestBody,
+  ZarinpalRequestResponse,
+  ZarinpalVerifyResponse,
+} from "../../features/order/interface/order.interface";
 import {
   BadRequestException,
   notFoundExeption,
   unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
+import axios from "axios";
+
+//+ ZARINPAL DATA:
+const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID
+const ZARINPAL_API_REQUEST = process.env.ZARINPAL_API_REQUEST
+const ZARINPAL_API_VERIFY = process.env.ZARINPAL_API_VERIFY
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:5000"
 
 class OrderService {
+  //+ create order
   public async createOrder(
     requestBody: ICreateOrder,
     currentUser: UserPayload
@@ -95,6 +108,7 @@ class OrderService {
     });
   }
 
+  //+ cancel order
   public async cancelOrder(orderId: number, currentUser: UserPayload) {
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -123,6 +137,146 @@ class OrderService {
       });
 
       return updateOrder;
+    });
+  }
+
+  //! initiatePayment ==> zarinpal
+  public async initiatePayment(orderId: number, currentUser: UserPayload) {
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, authorId: currentUser.id },
+    });
+
+    if (!order) throw new notFoundExeption("order is not found");
+    if (order.status !== "PENDING")
+      throw new BadRequestException("this order befor canceled or payed");
+
+    const amount = order.totalPrice;
+    const description = order.description || `payment number :${order.id}`;
+    const callback_url = `${APP_BASE_URL}/api/v1/orders/payment/callback`;
+
+    //+ get request to zarinpal
+    const response = await axios.post<ZarinpalRequestResponse>(
+      ZARINPAL_API_REQUEST!,
+      {
+        merchant_id: ZARINPAL_MERCHANT_ID,
+        amount,
+        description,
+        callback_url,
+      }
+    );
+
+    if (response.data.data.code !== 100) {
+      throw new BadRequestException("خطا در برقراری ارتباط با درگاه پرداخت.");
+    }
+
+    const authority = response.data.data.authority;
+
+    await prisma.payment.create({
+      data: {
+        orderId: order.id,
+        amount: amount,
+        gateway: "ZARINPAL",
+        transactionId: authority,
+      },
+    });
+
+    //+ create final link for users
+    const paymentGeteWayUrl = `https://sandbox.zarinpal.com/pg/StartPay/${authority}`;
+    return { paymentGeteWayUrl };
+  }
+
+  public async verifyPayment(authority: string, status: string) {
+    if (status !== "OK") {
+      throw new BadRequestException("payment canceled by user");
+    }
+
+    const payment = await prisma.payment.findFirst({
+      where: { transactionId: authority },
+      include: { order: true },
+    });
+
+    if (!payment || !payment.order) {
+      throw new notFoundExeption("payment information not found");
+    }
+
+    const amount = payment.order.totalPrice;
+
+    //+ send request to zarinpal from total price ==> final pay
+    const response = await axios.post<ZarinpalVerifyResponse>(
+      ZARINPAL_API_VERIFY!,
+      {
+        merchant_id: ZARINPAL_MERCHANT_ID,
+        amount,
+        authority,
+      }
+    );
+
+    const responseData = response.data.data;
+
+    //+ for payment failed
+    if (responseData.code !== 100 && responseData.code !== 101) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: "FAILED" },
+      });
+      throw new BadRequestException(
+        `خطا در تایید پرداخت: ${responseData.message}`
+      );
+    }
+
+    //+ successfully payment
+    return prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "SUCCESSFUL",
+          transactionId: responseData.ref_id.toString(),
+        },
+      });
+
+      await tx.order.update({
+        where: { id: payment.orderId },
+        data: { status: "PAID" },
+      });
+
+      const cart = await tx.cart.findUnique({
+        where: { userId: payment.order.authorId },
+        include: {
+          cartItem: {
+            include: {
+              productSKU: {
+                include: {
+                  product: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (cart && cart.cartItem.length > 0) {
+        for (const item of cart.cartItem) {
+          await tx.orderItems.create({
+            data: {
+              orderId: payment.orderId,
+              productSKUId: item.productSKUId,
+              quantity: item.quantity,
+              priceAtPurchase: item.price,
+              sku: item.productSKU.sku,
+            },
+          });
+
+          await tx.productSKU.update({
+            where: { id: item.productSKUId },
+            data: {
+              quantity: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        }
+      }
+      return {status: "SUCCESS", message: "payment successfully", refId: responseData.ref_id}
     });
   }
 }

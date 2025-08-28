@@ -157,7 +157,7 @@ model Order {
 model orderItems {
   id              Int    @id @default(autoincrement())
   quantity        Int
-  productTitle    String
+  productTitle    String?
   sku             String
   priceAtPurchase Float
 
