@@ -101,6 +101,17 @@ class OrderController {
       data: updateOrder
     })
   }
+  
+  //+ get the order history of the logged-in user
+  public async getMyOrder(req:Request, res:Response) {
+    const order = await orderService.getMyOrder(req.currentUser);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "user order fetched successfully",
+      data: order
+    })
+  }
 }
+
 
 export const orderController: OrderController = new OrderController();

@@ -9,6 +9,7 @@ import orderRouter from "../../features/order/route/order.route";
 import wishListRouter from "../../features/wishList/route/wishlist.route";
 import addressRouter from "../../features/address/route/address.route";
 import cartRoute from "../../features/cart/route/cart.route";
+import dashboardRoute from "../../features/dashboard-api/route/dashboard.route";
 
 const appRoutes = (app: Application) => {
     app.use('/api/v1/users', userRoute);
@@ -21,6 +22,7 @@ const appRoutes = (app: Application) => {
     app.use('/api/v1/wishlist', wishListRouter);
     app.use('/api/v1/addresses', addressRouter);
     app.use('/api/v1/cart', cartRoute);
+    app.use('/api/v1/dashboard', dashboardRoute);
 }
 
 export default appRoutes;

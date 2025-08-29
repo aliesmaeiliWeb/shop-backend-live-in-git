@@ -361,6 +361,14 @@ class OrderService {
     const whereClause: Prisma.OrderWhereInput = {};
 
     if (status) {
+      if (!Object.values(OrderStatus).includes(status as OrderStatus)) {
+        throw new BadRequestException(
+          `مقدار وضعیت (status) نامعتبر است. مقادیر مجاز: ${Object.values(
+            OrderStatus
+          ).join(", ")}`
+        );
+      }
+
       whereClause.status = status;
     }
 
@@ -449,6 +457,32 @@ class OrderService {
           newStatus === "SHIPPED" ? trackingCode : order.trackingCode,
       },
     });
+  }
+
+  //+ get the current user's order history
+  public async getMyOrder(currentUser: UserPayload) {
+    const orders = await prisma.order.findMany({
+      where: {
+        authorId: currentUser.id,
+      },
+      include: {
+        items: {
+          include: {
+            productSKU: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (!orders)
+      throw new BadRequestException(
+        `order for user: ${currentUser.name} not found`
+      );
+
+    return orders;
   }
 }
 

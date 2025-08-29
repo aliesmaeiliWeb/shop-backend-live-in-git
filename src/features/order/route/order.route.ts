@@ -37,6 +37,12 @@ orderRouter.post(
 //+ using middleware fo admin access
 orderRouter.use(checkpermission("Admin", "Shop"));
 
+//+ get history orders user
+orderRouter.get(
+  '/my-orders',
+  asyncWrapper(orderController.getMyOrder.bind(orderController))
+);
+
 //+ get all order
 orderRouter.get(
   '/all',
