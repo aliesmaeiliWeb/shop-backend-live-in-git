@@ -4,6 +4,7 @@ import {
   ZarinpalRequestResponse,
   ZarinpalVerifyResponse,
 } from "../../features/order/interface/order.interface";
+import { OrderStatus, Prisma } from "../../generated/prisma";
 import {
   BadRequestException,
   notFoundExeption,
@@ -13,10 +14,10 @@ import { prisma } from "../../prisma";
 import axios from "axios";
 
 //+ ZARINPAL DATA:
-const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID
-const ZARINPAL_API_REQUEST = process.env.ZARINPAL_API_REQUEST
-const ZARINPAL_API_VERIFY = process.env.ZARINPAL_API_VERIFY
-const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:5000"
+const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID;
+const ZARINPAL_API_REQUEST = process.env.ZARINPAL_API_REQUEST;
+const ZARINPAL_API_VERIFY = process.env.ZARINPAL_API_VERIFY;
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:5000";
 
 class OrderService {
   //+ create order
@@ -276,7 +277,177 @@ class OrderService {
           });
         }
       }
-      return {status: "SUCCESS", message: "payment successfully", refId: responseData.ref_id}
+      return {
+        status: "SUCCESS",
+        message: "payment successfully",
+        refId: responseData.ref_id,
+      };
+    });
+  }
+
+  //? update order status
+  public async updateOrderStatus(
+    orderId: number,
+    newStatus: OrderStatus,
+    trackingCode?: string
+  ) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new notFoundExeption("order is not found");
+    }
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: newStatus,
+        trackingCode:
+          newStatus === "SHIPPED" ? trackingCode : order.trackingCode,
+      },
+    });
+  }
+
+  //? cancel prodcrt by admin and update product
+  public async cancelAndRestockOrder(orderId: number) {
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: true,
+        },
+      });
+
+      if (!order) {
+        throw new notFoundExeption("order is not found");
+      }
+
+      if (order.status === "CANCELLED" || order.status === "REFUNDED") {
+        throw new BadRequestException("this order is canceled");
+      }
+
+      //+
+      for (const item of order.items) {
+        await tx.productSKU.update({
+          where: { id: item.productSKUId },
+          data: {
+            quantity: {
+              increment: item.quantity,
+            },
+          },
+        });
+      }
+
+      const updateOrderStatus = await tx.order.update({
+        where: { id: orderId },
+        data: { status: "CANCELLED" },
+      });
+
+      return updateOrderStatus;
+    });
+  }
+
+  //? get all order filtered
+  public async getAllOrder(options: {
+    status?: OrderStatus;
+    search?: string;
+    page?: number;
+    limite?: number;
+  }) {
+    const { status, search, page = 1, limite = 10 } = options;
+    const skip = (page - 1) * limite;
+
+    const whereClause: Prisma.OrderWhereInput = {};
+
+    if (status) {
+      whereClause.status = status;
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { customerName: { contains: search } },
+        { customerEmail: { contains: search } },
+      ];
+    }
+
+    const order = await prisma.order.findMany({
+      where: whereClause,
+      include: {
+        autor: {
+          select: {
+            name: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limite,
+      skip,
+    });
+
+    const totalOrders = await prisma.order.count({ where: whereClause });
+    return { order, totalOrders, totalPage: Math.ceil(totalOrders / limite) };
+  }
+
+  //+ get order by id ==> to view full order details , contact the admin
+  public async getOrderById(orderId: number) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        autor: { select: { name: true, lastName: true, email: true } },
+        items: { include: { productSKU: true } },
+        payments: true,
+      },
+    });
+
+    if (!order) {
+      throw new notFoundExeption("order is not found");
+    }
+    return order;
+  }
+
+  //+ new method to get all orders from a specific user
+  public async getOrderByUserId(userId: number) {
+    return prisma.order.findMany({
+      where: { authorId: userId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  //+ ordering situations with intelligent login
+  allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
+    PENDING: ["PAID", "CANCELLED"],
+    PAID: ["PROCESSING", "CANCELLED"],
+    PROCESSING: ["SHIPPED"],
+    SHIPPED: ["DELIVERED"],
+    DELIVERED: [], // وضعیت نهایی
+    CANCELLED: [], // وضعیت نهایی
+    REFUNDED: [], // وضعیت نهایی
+  };
+
+  public async updateOrder(
+    orderId: number,
+    newStatus: OrderStatus,
+    trackingCode?: string
+  ) {
+    const order = await this.getOrderById(orderId);
+
+    const currentStatus = order.status;
+    const allowedNexStatuses = this.allowedTransitions[currentStatus];
+
+    if (!allowedNexStatuses.includes(newStatus)) {
+      throw new BadRequestException("status change is not allowed");
+    }
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: newStatus,
+        trackingCode:
+          newStatus === "SHIPPED" ? trackingCode : order.trackingCode,
+      },
     });
   }
 }

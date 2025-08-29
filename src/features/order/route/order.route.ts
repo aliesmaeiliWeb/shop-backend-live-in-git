@@ -1,9 +1,9 @@
 import express from "express";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { orderController } from "../controller/order.controller";
-import { verifyUser } from "../../../globals/middlewares/auth.middleware";
+import { checkpermission, verifyUser } from "../../../globals/middlewares/auth.middleware";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
-import { createOrderSchema } from "../schema/order.schema";
+import { createOrderSchema, updateOrderStatusSchema } from "../schema/order.schema";
 
 const orderRouter = express.Router();
 
@@ -33,5 +33,39 @@ orderRouter.post(
   "/:orderId/pay",
   asyncWrapper(orderController.initiatePayment.bind(orderController))
 );
+
+//+ using middleware fo admin access
+orderRouter.use(checkpermission("Admin", "Shop"));
+
+//+ get all order
+orderRouter.get(
+  '/all',
+  asyncWrapper(orderController.getAll.bind(orderController))
+);
+
+//+ get order by id
+orderRouter.get(
+  '/:id',
+  asyncWrapper(orderController.getOne.bind(orderController))
+);
+
+//+ get all order for user
+orderRouter.get(
+  '/user/:userId',
+  asyncWrapper(orderController.getForUser.bind(orderController))
+);
+
+//+ change status order by admin
+orderRouter.patch(
+  '/:id/status',
+  validateShema(updateOrderStatusSchema),
+  asyncWrapper(orderController.updateStatus.bind(orderController))
+);
+
+//+ cancel order by admin
+orderRouter.patch(
+  '/:id/cancel-admin',
+  asyncWrapper(orderController.cancelByAdmin.bind(orderController))
+)
 
 export default orderRouter;
