@@ -2,7 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { productController } from "../controller/product.controller";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
-import { productSchema } from "../schema/product.schema";
+import { productSchema, updateProductSchema } from "../schema/product.schema";
 import {
   checkpermission,
   preventInActiveUser,
@@ -40,8 +40,8 @@ productRoute.post(
 productRoute.patch(
   "/:id",
   upload.array("main_Image", 15),
+  validateShema(updateProductSchema),
   parseDynamicAttribute,
-  validateShema(productSchema),
   asyncWrapper(productController.update.bind(productController))
 );
 productRoute.delete(

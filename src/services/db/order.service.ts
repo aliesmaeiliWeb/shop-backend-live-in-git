@@ -12,6 +12,7 @@ import {
 } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 import axios from "axios";
+import { notificationService } from "./nofitication.service";
 
 //+ ZARINPAL DATA:
 const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID;
@@ -25,9 +26,19 @@ class OrderService {
     requestBody: ICreateOrder,
     currentUser: UserPayload
   ) {
-    const { addressId, description } = requestBody;
+    const { addressId, description, couponCode } = requestBody;
 
     return prisma.$transaction(async (tx) => {
+      const userId = await tx.user.findUnique({
+        where: { id: currentUser.id },
+      });
+
+      if (!userId?.phoneNumber) {
+        throw new BadRequestException(
+          "برای ثبت سفارش، لطفاً ابتدا شماره تلفن خود را در پروفایل کاربری تکمیل نمایید."
+        );
+      }
+
       //+ check valid data
       const cart = await tx.cart.findUnique({
         where: { userId: currentUser.id },
@@ -70,25 +81,54 @@ class OrderService {
       }
 
       //+ calculate total price
-      const subTotal = cart.totalPrice;
-      const shippingCost = 0;
-      const taxAmount = 0;
-      const discountAmount = 0;
-      const finalPrice = subTotal + shippingCost + taxAmount + discountAmount;
+      let discountAmount = 0;
+      const subtotal = cart.totalPrice;
+
+      if (couponCode) {
+        const coupon = await tx.coupon.findUnique({
+          where: { code: couponCode },
+        });
+
+        if (
+          !coupon ||
+          !coupon.isActive ||
+          (coupon.expiresAt && coupon.expiresAt < new Date()) ||
+          coupon.timesUsed >= coupon.usageLimit
+        ) {
+          throw new BadRequestException("کد تخفیف نامعتبر یا منقضی شده است.");
+        }
+
+        if (coupon.discountType === "PERCENTAGE") {
+          discountAmount = subtotal * (coupon.value / 100);
+        } else {
+          discountAmount = coupon.value;
+        }
+
+        await tx.coupon.update({
+          where: { id: coupon.id },
+          data: { timesUsed: { increment: 1 } },
+        });
+      }
+
+      const shippingCost = 0; // فعلاً ثابت
+      const taxAmount = 0; // فعلاً ثابت
+      const finalPrice = subtotal + shippingCost + taxAmount - discountAmount;
+
+      const user = await tx.user.findUnique({ where: { id: currentUser.id } });
 
       //+ save order to pending status
       const order = await tx.order.create({
         data: {
           authorId: currentUser.id,
           totalPrice: finalPrice,
-          subtotal: subTotal,
+          subtotal: subtotal,
           shippingCost: shippingCost,
           taxAmount: taxAmount,
           discountAmount: discountAmount,
           status: "PENDING",
           shippingAddress: JSON.stringify(address),
           customerName: `${currentUser.name} ${currentUser.lastName}`,
-          customerPhone: "User phone number",
+          customerPhone: user?.phoneNumber || "not set",
           customerEmail: currentUser.email,
           description: description,
         },
@@ -193,7 +233,14 @@ class OrderService {
 
     const payment = await prisma.payment.findFirst({
       where: { transactionId: authority },
-      include: { order: true },
+      include: {
+        order: {
+          include: {
+            items: true,
+            autor: true,
+          },
+        },
+      },
     });
 
     if (!payment || !payment.order) {
@@ -226,7 +273,7 @@ class OrderService {
     }
 
     //+ successfully payment
-    return prisma.$transaction(async (tx) => {
+    const finalOrder = await prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -235,54 +282,29 @@ class OrderService {
         },
       });
 
-      await tx.order.update({
+      const updatedOrder = await tx.order.update({
         where: { id: payment.orderId },
         data: { status: "PAID" },
       });
 
-      const cart = await tx.cart.findUnique({
-        where: { userId: payment.order.authorId },
-        include: {
-          cartItem: {
-            include: {
-              productSKU: {
-                include: {
-                  product: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (cart && cart.cartItem.length > 0) {
-        for (const item of cart.cartItem) {
-          await tx.orderItems.create({
-            data: {
-              orderId: payment.orderId,
-              productSKUId: item.productSKUId,
-              quantity: item.quantity,
-              priceAtPurchase: item.price,
-              sku: item.productSKU.sku,
-            },
-          });
-
-          await tx.productSKU.update({
-            where: { id: item.productSKUId },
-            data: {
-              quantity: {
-                decrement: item.quantity,
-              },
-            },
-          });
-        }
-      }
-      return {
-        status: "SUCCESS",
-        message: "payment successfully",
-        refId: responseData.ref_id,
-      };
+      return updatedOrder;
     });
+
+    try {
+      const userPhoneNumber = payment.order.autor.phoneNumber;
+      await notificationService.sendOrderConfirmationSms(
+        finalOrder,
+        userPhoneNumber!
+      );
+    } catch (error) {
+      console.error("خطا در ارسال پیامک تایید سفارش.", error);
+    }
+
+    return {
+      status: "SUCCESS",
+      message: "پرداخت با موفقیت تایید شد.",
+      refId: responseData.ref_id,
+    };
   }
 
   //? update order status

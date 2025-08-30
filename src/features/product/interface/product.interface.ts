@@ -6,6 +6,7 @@ export interface IProductsBody {
   categoryId: string;
   price: string,
   dynamicAttributes?: string;
+  discountPercentage?: string;
 };
 
 export interface ICreateSKUBody {

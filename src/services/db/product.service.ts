@@ -29,6 +29,7 @@ class ProductService {
       price,
       categoryId,
       dynamicAttributes,
+      discountPercentage,
     } = requestBody;
 
     const product: Product = await prisma.product.create({
@@ -41,6 +42,7 @@ class ProductService {
         shopId: currentUser.id,
         price: parseFloat(price),
         dynamicAttributes: JSON.stringify(dynamicAttributes),
+        discountPercentage: parseInt(requestBody.discountPercentage!),
       },
     });
     return product;
@@ -84,37 +86,40 @@ class ProductService {
     });
 
     if (!sku) {
-      throw new notFoundExeption(`sku with id: ${skuId} not found`)
+      throw new notFoundExeption(`sku with id: ${skuId} not found`);
     }
 
     if (sku.product.shopId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the owner of this product")
+      throw new unauthorizedExeption("you are not the owner of this product");
     }
 
     return await prisma.productSKU.update({
-      where: {id: skuId},
+      where: { id: skuId },
       data: {
         price: price ? parseFloat(price) : undefined,
         quantity: quantity ? parseInt(quantity) : undefined,
-      }
-    })
+      },
+    });
   }
 
-  public async removeSku(skuId: number, currentUser: UserPayload): Promise<void> {
+  public async removeSku(
+    skuId: number,
+    currentUser: UserPayload
+  ): Promise<void> {
     const sku = await prisma.productSKU.findUnique({
-      where: {id: skuId},
-      include: {product: true}
+      where: { id: skuId },
+      include: { product: true },
     });
 
     if (!sku) {
-      throw new notFoundExeption(`sku with id ${skuId} not found`)
+      throw new notFoundExeption(`sku with id ${skuId} not found`);
     }
 
     if (sku.product.shopId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the owner of this product")
+      throw new unauthorizedExeption("you are not the owner of this product");
     }
 
-    await prisma.productSKU.delete({where: {id: skuId}})
+    await prisma.productSKU.delete({ where: { id: skuId } });
   }
 
   public async get(): Promise<Product[]> {
@@ -173,6 +178,7 @@ class ProductService {
       categoryId,
       price,
       dynamicAttributes,
+      discountPercentage,
     } = requestBody;
     const currentProduct = await this.getProduct(id);
 
@@ -193,9 +199,12 @@ class ProductService {
         longDescription,
         shortDescription,
         main_Image: JSON.stringify(allImage),
-        categoryId: parseInt(categoryId),
-        price: parseFloat(price),
+        category: categoryId
+        ? { connect: { id: parseInt(categoryId) } }
+        : undefined,
+        price: price ? parseFloat(price) : undefined,
         dynamicAttributes: JSON.stringify(dynamicAttributes),
+        discountPercentage: requestBody.discountPercentage ? parseInt(requestBody.discountPercentage) : undefined,
       },
     });
     return product;

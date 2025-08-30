@@ -7,11 +7,13 @@ export interface IUserCreateBody {
   lastName: string;
   avatar: string;
   role: Role;
+  phoneNumber?: string;
 }
 export interface IUserUpdateBody {
   name: string;
   lastName: string;
   avatar: string;
+  phoneNumber?: string
 }
 export interface IUserUpdatePasswordBody {
   currentPassword: string;

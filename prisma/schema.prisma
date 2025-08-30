@@ -21,23 +21,24 @@ enum Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  name      String
-  email     String     @unique
-  lastName  String
-  password  String?
-  avatar    String
-  role      Role       @default(Admin)
+  id          Int        @id @default(autoincrement())
+  name        String
+  email       String     @unique
+  lastName    String
+  password    String?
+  avatar      String
+  role        Role       @default(Admin)
+  phoneNumber String?
   // for relation
-  products  Product[]
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  comments  Comment[]
-  order     Order[]
-  wishlist  WishList[]
-  addresses Address[]
-  cart      Cart?
+  products    Product[]
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  comments    Comment[]
+  order       Order[]
+  wishlist    WishList[]
+  addresses   Address[]
+  cart        Cart?
 }
 
 model Attribute {
@@ -62,20 +63,21 @@ model Category {
 }
 
 model Product {
-  id               Int       @id @default(autoincrement())
-  name             String
-  longDescription  String    @db.Text
-  shortDescription String
-  price            Float     @default(0)
-  main_Image       String
-  category         Category  @relation(fields: [categoryId], references: [id])
-  categoryId       Int
-  shop             User?     @relation(fields: [shopId], references: [id])
-  shopId           Int?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime? @default(now()) @updatedAt
+  id                 Int       @id @default(autoincrement())
+  name               String
+  longDescription    String    @db.Text
+  shortDescription   String
+  price              Float     @default(0)
+  main_Image         String
+  category           Category  @relation(fields: [categoryId], references: [id])
+  categoryId         Int
+  shop               User?     @relation(fields: [shopId], references: [id])
+  shopId             Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime? @default(now()) @updatedAt
+  discountPercentage Int?
 
-  comments  Comment[]
+  comments Comment[]
 
   wishlist WishList[]
 
@@ -131,7 +133,7 @@ enum OrderStatus {
 }
 
 model Order {
-  id              Int      @id @default(autoincrement())
+  id              Int         @id @default(autoincrement())
   totalPrice      Float
   shippingCost    Float       @default(0)
   taxAmount       Float       @default(0)
@@ -155,7 +157,7 @@ model Order {
 }
 
 model orderItems {
-  id              Int    @id @default(autoincrement())
+  id              Int     @id @default(autoincrement())
   quantity        Int
   productTitle    String?
   sku             String
@@ -231,4 +233,22 @@ model CartItem {
   productId    Int?
 
   @@unique([cartId, productSKUId])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Coupon {
+  id           Int          @id @default(autoincrement())
+  code         String       @unique
+  discountType DiscountType
+  value        Float
+  expiresAt    DateTime?
+  isActive     Boolean      @default(true)
+  usageLimit   Int          @default(1)
+  timesUsed    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updateAt     DateTime     @updatedAt
 }

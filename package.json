@@ -45,6 +45,7 @@
     "hpp": "^0.2.3",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "kavenegar": "^1.1.4",
     "multer": "^2.0.2",
     "prisma": "^4.16.2",
     "xss-clean": "^0.1.4"

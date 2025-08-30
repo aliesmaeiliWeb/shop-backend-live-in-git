@@ -15,3 +15,4 @@ declare namespace Express {
 }
 
 declare module 'xss-clean';
+declare module 'kavenegar';

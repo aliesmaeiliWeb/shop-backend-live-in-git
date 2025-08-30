@@ -22,6 +22,7 @@ class UserService {
       avatar,
       password,
       role: roleStr,
+      phoneNumber,
     } = requestBody;
 
     if (await authService.isEmailAlreadyExist(email)) {
@@ -41,6 +42,7 @@ class UserService {
         avatar,
         password: hasHedPassword,
         role,
+        phoneNumber,
       },
     });
 
@@ -52,7 +54,7 @@ class UserService {
     requestBody: IUserUpdateBody,
     currentUser: UserPayload
   ) {
-    const { name, lastName, avatar } = requestBody;
+    const { name, lastName, avatar, phoneNumber } = requestBody;
 
     if (currentUser.id !== id && currentUser.role !== "Admin") {
       throw new forbiddenExeption("you cannot perform this actoin");
@@ -64,6 +66,7 @@ class UserService {
         name,
         lastName,
         avatar,
+        phoneNumber: phoneNumber
       },
     });
 

@@ -23,6 +23,7 @@ class CartService {
     //+ to make sure of being product sku
     const productSKU = await prisma.productSKU.findUnique({
       where: { id: productSKUId },
+      include: { product: true },
     });
 
     if (!productSKU) {
@@ -47,13 +48,21 @@ class CartService {
         );
       }
 
+      //+ calculate final price by coupon
+      let finalPrice = productSKU.price;
+      if (productSKU.product.discountPercentage) {
+        const discount =
+          finalPrice * (productSKU.product.discountPercentage / 100);
+        finalPrice = finalPrice - discount;
+      }
+
       await tx.cartItem.upsert({
         where: { cartId_productSKUId: { cartId: cart.id, productSKUId } },
         create: {
           cartId: cart.id,
           productSKUId,
           quantity,
-          price: productSKU.price,
+          price: finalPrice,
         },
         update: { quantity: { increment: quantity } },
       });
@@ -199,4 +208,4 @@ class CartService {
   }
 }
 
-export const cartService:CartService = new CartService();
+export const cartService: CartService = new CartService();
