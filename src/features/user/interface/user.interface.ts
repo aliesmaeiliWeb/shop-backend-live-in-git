@@ -8,12 +8,14 @@ export interface IUserCreateBody {
   avatar: string;
   role: Role;
   phoneNumber?: string;
+  isActive: boolean
 }
 export interface IUserUpdateBody {
   name: string;
   lastName: string;
   avatar: string;
-  phoneNumber?: string
+  phoneNumber?: string;
+  isActive: boolean
 }
 export interface IUserUpdatePasswordBody {
   currentPassword: string;

@@ -1,4 +1,4 @@
-import { Role, User } from "../../generated/prisma";
+import { Prisma, Role, User } from "../../generated/prisma";
 import { prisma } from "../../prisma";
 import bcrypt from "bcrypt";
 import { authService } from "./auth.service";
@@ -23,6 +23,7 @@ class UserService {
       password,
       role: roleStr,
       phoneNumber,
+      isActive
     } = requestBody;
 
     if (await authService.isEmailAlreadyExist(email)) {
@@ -43,10 +44,66 @@ class UserService {
         password: hasHedPassword,
         role,
         phoneNumber,
+        isActive: Boolean(isActive)
       },
     });
 
     return this.returnUser(newUser);
+  }
+
+  public async getAllUsers(options: {
+    search?: string;
+    role?: Role;
+    page?: number;
+    limit?: number;
+  }) {
+    const { search, role, page = 1, limit = 10 } = options;
+    const skip = (page - 1) * limit;
+
+    const whereClause: Prisma.UserWhereInput = {};
+
+    if (role) {
+      if (!Object.values(Role).includes(role)) {
+        throw new BadRequestException("رول ارسال شده معتبر نیست");
+      }
+      whereClause.role = role;
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } },
+      ];
+    }
+
+    const [user, totalUser] = await prisma.$transaction([
+      prisma.user.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: skip,
+      }),
+      prisma.user.count({ where: whereClause }),
+    ]);
+
+    const userWithouPassword = user.map((user) => {
+      const { password, ...rest } = user;
+      return rest;
+    });
+
+    return { data: userWithouPassword, total: totalUser };
+  }
+
+  public async getUserById(id: number) {
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new notFoundExeption(`کاربری با آیدی ${id} پیدا نشد`);
+    }
+
+    const {password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 
   public async edit(
@@ -54,7 +111,7 @@ class UserService {
     requestBody: IUserUpdateBody,
     currentUser: UserPayload
   ) {
-    const { name, lastName, avatar, phoneNumber } = requestBody;
+    const { name, lastName, avatar, phoneNumber, isActive } = requestBody;
 
     if (currentUser.id !== id && currentUser.role !== "Admin") {
       throw new forbiddenExeption("you cannot perform this actoin");
@@ -66,7 +123,8 @@ class UserService {
         name,
         lastName,
         avatar,
-        phoneNumber: phoneNumber
+        phoneNumber: phoneNumber,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
       },
     });
 

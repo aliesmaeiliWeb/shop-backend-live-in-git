@@ -15,6 +15,8 @@ import {
 import { prisma } from "../../prisma";
 import { fileRemoveService } from "./file-remove.service";
 import { json } from "stream/consumers";
+import myCatch from "../../cache/cache";
+import flushProductsList from "../../cache/product.cache";
 
 class ProductService {
   public async creatBase(
@@ -45,6 +47,9 @@ class ProductService {
         discountPercentage: parseInt(requestBody.discountPercentage!),
       },
     });
+
+    flushProductsList();
+
     return product;
   }
 
@@ -136,6 +141,17 @@ class ProductService {
     sortDir: string = UtilsConstant.Default_Sort_Dir,
     where = {}
   ) {
+    //+ cache
+    const cacheKey = `product:page${page}:size:${pageSize}:sortBy:${sortBy}:sortDir:${sortDir}:where:${JSON.stringify(
+      where
+    )}`;
+
+    //+chech cache exist
+    const cachedProducts = myCatch.get<Product[]>(cacheKey);
+    if (cachedProducts) {
+      return cachedProducts;
+    }
+
     const skip: number = (page - 1) * pageSize; // (2 -1) *10 = 10 products
     const take: number = pageSize;
 
@@ -151,6 +167,16 @@ class ProductService {
   }
   //+ get product width all skus
   public async getOne(id: number): Promise<Product & { skus: ProductSKU[] }> {
+    //+ cache
+    const cacheKey = `product:${id}`;
+
+    const cachedProduct = myCatch.get<Product & { skus: ProductSKU[] }>(
+      cacheKey
+    );
+    if (cachedProduct) {
+      return cachedProduct;
+    }
+
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -200,13 +226,19 @@ class ProductService {
         shortDescription,
         main_Image: JSON.stringify(allImage),
         category: categoryId
-        ? { connect: { id: parseInt(categoryId) } }
-        : undefined,
+          ? { connect: { id: parseInt(categoryId) } }
+          : undefined,
         price: price ? parseFloat(price) : undefined,
         dynamicAttributes: JSON.stringify(dynamicAttributes),
-        discountPercentage: requestBody.discountPercentage ? parseInt(requestBody.discountPercentage) : undefined,
+        discountPercentage: requestBody.discountPercentage
+          ? parseInt(requestBody.discountPercentage)
+          : undefined,
       },
     });
+
+    myCatch.del(`product:${id}`);
+    flushProductsList();
+
     return product;
   }
 
@@ -235,6 +267,9 @@ class ProductService {
         id,
       },
     });
+
+    myCatch.del(`product:${id}`);
+    flushProductsList();
   }
 
   public async removeImage(productId: number, imageUrlDelete: string) {

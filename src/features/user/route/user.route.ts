@@ -29,6 +29,16 @@ userRoute.post(
   validateShema(userSchemaCreate),
   asyncWrapper(userController.createUser.bind(userController))
 );
+userRoute.get(
+  "/",
+  checkpermission("Admin"),
+  asyncWrapper(userController.getAll.bind(userController))
+);
+userRoute.get(
+  "/:id",
+  checkpermission("Admin"),
+  asyncWrapper(userController.getOne.bind(userController))
+);
 userRoute.put(
   "/:id",
   // verifyUser,

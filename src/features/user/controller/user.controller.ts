@@ -6,8 +6,8 @@ import { userService } from "../../../services/db/user.service";
 // import { userSchemaCreate } from "../schema/user.schema";
 
 class UserController {
-  public async createUser(req: Request, res: Response, next:NextFunction) {
-   const newUser = await userService.add(req.body);
+  public async createUser(req: Request, res: Response, next: NextFunction) {
+    const newUser = await userService.add(req.body);
 
     res.status(HTTP_STATUS.create).json({
       message: "create new user",
@@ -17,41 +17,64 @@ class UserController {
     });
   }
 
-  public async getMe(req: Request, res: Response, next:NextFunction) {
-    return res.status(HTTP_STATUS.ok).json(req.currentUser)
+  public async getMe(req: Request, res: Response, next: NextFunction) {
+    return res.status(HTTP_STATUS.ok).json(req.currentUser);
   }
 
-  public async update(req:Request, res:Response) {
-    const updateDataUser = await userService.edit(parseInt(req.params.id), req.body, req.currentUser);
+  public async getAll(req: Request, res: Response) {
+    const result = await userService.getAllUsers(req.query);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "users geting successfully",
+      ...result,
+    });
+  }
+
+  public async getOne(req:Request, res:Response) {
+    const userId = parseInt(req.params.id);
+    const user = await userService.getUserById(userId);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "user get by id is successfully",
+      data: user
+    })
+  }
+
+  public async update(req: Request, res: Response) {
+    const updateDataUser = await userService.edit(
+      parseInt(req.params.id),
+      req.body,
+      req.currentUser
+    );
 
     return res.status(HTTP_STATUS.ok).json({
       message: "update user",
-      data: updateDataUser
-    })
+      data: updateDataUser,
+    });
   }
 
-  public async changePassword(req:Request, res:Response) {
+  public async changePassword(req: Request, res: Response) {
     await userService.editPassword(req.body, req.currentUser);
 
     return res.status(HTTP_STATUS.ok).json({
-      message: "update password successfully"
-    })
+      message: "update password successfully",
+    });
   }
 
-  public async delete(req:Request, res:Response){
+  public async delete(req: Request, res: Response) {
     await userService.remove(parseInt(req.params.id), req.currentUser);
 
     return res.status(HTTP_STATUS.ok).json({
-      message: "delete user successfully"
-    })
+      message: "delete user successfully",
+    });
   }
 
-  public async uploadAvatar(req:Request, res:Response) {
+  public async uploadAvatar(req: Request, res: Response) {
     await userService.editAvatar(req.file, req.currentUser);
 
     res.status(HTTP_STATUS.ok).json({
-      message: "uploaded avatar successfully"
-    })
+      message: "uploaded avatar successfully",
+    });
   }
 }
 
