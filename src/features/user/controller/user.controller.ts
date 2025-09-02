@@ -40,6 +40,16 @@ class UserController {
     })
   }
 
+  public async getProfile(req:Request, res:Response) {
+    const userId = parseInt(req.params.id);
+    const userProfile = await userService.getUserProfile(userId);
+
+    return res.status(HTTP_STATUS.ok).json({
+      message: "get profile is successfully",
+      data: userProfile,
+    })
+  }
+
   public async update(req: Request, res: Response) {
     const updateDataUser = await userService.edit(
       parseInt(req.params.id),

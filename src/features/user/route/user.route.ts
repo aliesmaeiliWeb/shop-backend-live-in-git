@@ -39,6 +39,11 @@ userRoute.get(
   checkpermission("Admin"),
   asyncWrapper(userController.getOne.bind(userController))
 );
+userRoute.get(
+  "/:id/profile",
+  checkpermission("Admin"),
+  asyncWrapper(userController.getProfile.bind(userController))
+);
 userRoute.put(
   "/:id",
   // verifyUser,

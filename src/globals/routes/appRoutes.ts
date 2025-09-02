@@ -11,6 +11,7 @@ import addressRouter from "../../features/address/route/address.route";
 import cartRoute from "../../features/cart/route/cart.route";
 import dashboardRoute from "../../features/dashboard-api/route/dashboard.route";
 import couponRoute from "../../features/coupon/route/coupon.route";
+import bannerRoute from "../../features/banner/route/banner.route";
 
 const appRoutes = (app: Application) => {
     app.use('/api/v1/users', userRoute);
@@ -25,6 +26,7 @@ const appRoutes = (app: Application) => {
     app.use('/api/v1/cart', cartRoute);
     app.use('/api/v1/dashboard', dashboardRoute);
     app.use('/api/v1/coupon', couponRoute);
+    app.use('/api/v1/banner', bannerRoute);
 }
 
 export default appRoutes;

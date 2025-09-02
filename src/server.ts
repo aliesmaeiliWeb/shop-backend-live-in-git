@@ -58,6 +58,16 @@ class server {
     this.app.use(hpp());
 
     this.app.use(
+      "/image/products",
+      express.static(path.join(process.cwd(), "uploads", "products"))
+    );
+
+    this.app.use(
+      "/image/banners",
+      express.static(path.join(process.cwd(), "uploads", "banners"))
+    );
+
+    this.app.use(
       "/image",
       (req, res, next) => {
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -87,8 +97,8 @@ class server {
 
         return res.status(HTTP_STATUS.internal_server_error).json({
           message: "internall Error",
-          data:{err}
-        })
+          data: { err },
+        });
       }
     );
   }

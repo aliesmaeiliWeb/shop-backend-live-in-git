@@ -308,7 +308,7 @@ class ProductService {
     // } catch (e) {
     //   console.error("خطا در حذف فایل");
     // }
-    await fileRemoveService.deleteFileRemoveImage(filenameToDelete);
+    await fileRemoveService.deleteUpload(filenameToDelete, 'products');
 
     return { success: true };
   }

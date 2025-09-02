@@ -4,12 +4,25 @@ import fs from "node:fs";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadFileDir = path.join(__dirname, "../../../image", "products");
+    const uploadFileDir = path.join(process.cwd(), "image", "products");
     cb(null, uploadFileDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
+
+const storageBanner = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(process.cwd(), "image", "banners");
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+
+    const safeOriginalName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${uniqueSuffix}-${safeOriginalName}`);
   },
 });
 
@@ -51,3 +64,4 @@ function createStorage(uploadDir: string) {
 
 export const categoryUpload = multer({ storage: storageCategory });
 export const uploadAvatar = multer({ storage: createStorage("users") });
+export const bannerUpload = multer({ storage: storageBanner });

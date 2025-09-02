@@ -131,6 +131,39 @@ class UserService {
     return this.returnUser(user);
   }
 
+  public async getUserProfile(userId: number) {
+    const userProfile = await prisma.user.findUnique({
+      where: {id : userId},
+      include: {
+        addresses: true,
+        order: {
+          orderBy : {createdAt: "desc"},
+          include: {
+            items: true,
+          },
+        },
+        comments: {
+          orderBy: {createdAt: "desc"},
+          include: {
+            product: {select: {name: true}},
+          },
+        },
+        wishlist: {
+          include: {
+            product: {select: {name: true}}
+          },
+        },
+      },
+    });
+
+    if (!userProfile) {
+      throw new notFoundExeption(`کاربر با شناسه ${userId} یافت نشد.`);
+    }
+
+    const {password, ...profileWithoutPassword} = userProfile;
+    return profileWithoutPassword;
+  }
+
   public async editPassword(
     requestBody: IUserUpdatePasswordBody,
     currentUser: UserPayload

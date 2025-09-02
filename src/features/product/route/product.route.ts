@@ -27,6 +27,8 @@ productRoute.get(
   asyncWrapper(productController.readMyProducts.bind(productController))
 );
 
+productRoute.use("/:productId/comments", commentRoute);
+
 productRoute.use(checkpermission("Shop", "Admin"));
 productRoute.use(preventInActiveUser);
 
@@ -66,7 +68,4 @@ productRoute.delete(
   "/skus/:skuId",
   asyncWrapper(productController.removeSku.bind(productController))
 );
-
-productRoute.use("/:productId/comments", commentRoute);
-
 export default productRoute;

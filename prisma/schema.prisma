@@ -252,3 +252,20 @@ model Coupon {
   createdAt    DateTime     @default(now())
   updateAt     DateTime     @updatedAt
 }
+
+enum BannerPosition {
+  HEADER
+  BODY
+}
+
+model Banner {
+  id        Int            @id @default(autoincrement())
+  imageUrl  String
+  position  BannerPosition
+  title     String?        // alt image
+  link      String?        // is open link when click
+  isActive  Boolean        @default(true)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
