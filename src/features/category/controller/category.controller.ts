@@ -6,7 +6,7 @@ class CategoryController {
   public async create(req: Request, res: Response) {
     console.log("Controller - Request Body:", req.body);
   console.log("Controller - File:", req.file);
-    const imageUrl = req.file ? `/uploads/categories/${req.file.filename}` : undefined;
+    const imageUrl = req.file ? `/${req.file.filename}` : undefined;
     const category = await categoryServer.add(req.body, imageUrl!);
     return res.status(HTTP_STATUS.create).json({
       message: "Create Category",

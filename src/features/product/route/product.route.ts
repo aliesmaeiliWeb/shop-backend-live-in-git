@@ -57,7 +57,7 @@ productRoute.delete(
 
 //+ SKU route
 productRoute.post(
-  "/:id/skus",
+  "/:id/sku",
   asyncWrapper(productController.addSku.bind(productController))
 );
 productRoute.patch(

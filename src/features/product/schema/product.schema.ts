@@ -8,7 +8,7 @@ export const productSchema = Joi.object({
   categoryId: Joi.number().integer().required(),
   price: Joi.number().required(),
   dynamicAttributes: Joi.object(),
-  discountPercentage: Joi.number().integer().optional() 
+  discountPercentage: Joi.number().integer().min(0).max(100).optional(),
 });
 
 export const updateProductSchema = Joi.object({
@@ -19,5 +19,5 @@ export const updateProductSchema = Joi.object({
   categoryId: Joi.number().integer().optional(),
   price: Joi.number().optional(),
   dynamicAttributes: Joi.object(),
-  discountPercentage: Joi.number().integer().optional() 
+  discountPercentage: Joi.number().integer().min(0).max(100).optional(),
 })

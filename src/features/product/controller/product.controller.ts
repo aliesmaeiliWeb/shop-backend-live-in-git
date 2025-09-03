@@ -151,7 +151,7 @@ class ProductController {
   //+ edit SKU
   public async editSku(req: Request, res: Response) {
     const updatedSku = await productService.editSku(
-      parseInt(req.params.id),
+      parseInt(req.params.skuId),
       req.body,
       req.currentUser
     );
@@ -164,7 +164,7 @@ class ProductController {
 
   //+ remove SKU
   public async removeSku(req: Request, res: Response) {
-    await productService.removeSku(parseInt(req.params.id), req.currentUser);
+    await productService.removeSku(parseInt(req.params.skuId), req.currentUser);
 
     return res.status(HTTP_STATUS.ok).json({
       message: "SKU removed successfully",

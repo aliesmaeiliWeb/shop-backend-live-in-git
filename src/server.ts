@@ -68,6 +68,11 @@ class server {
     );
 
     this.app.use(
+      "/image/category",
+      express.static(path.join(process.cwd(), "uploads", "category"))
+    );
+
+    this.app.use(
       "/image",
       (req, res, next) => {
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");

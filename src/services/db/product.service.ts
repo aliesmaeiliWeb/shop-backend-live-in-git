@@ -81,20 +81,20 @@ class ProductService {
     requestBody: ICreateSKUBody,
     currentUser: UserPayload
   ): Promise<ProductSKU> {
-    const { price, quantity } = requestBody;
+    const { price, quantity, sku } = requestBody;
 
-    const sku = await prisma.productSKU.findUnique({
+    const skus = await prisma.productSKU.findUnique({
       where: { id: skuId },
       include: {
         product: true,
       },
     });
 
-    if (!sku) {
+    if (!skus) {
       throw new notFoundExeption(`sku with id: ${skuId} not found`);
     }
 
-    if (sku.product.shopId !== currentUser.id) {
+    if (skus.product.shopId !== currentUser.id) {
       throw new unauthorizedExeption("you are not the owner of this product");
     }
 
@@ -103,6 +103,7 @@ class ProductService {
       data: {
         price: price ? parseFloat(price) : undefined,
         quantity: quantity ? parseInt(quantity) : undefined,
+        sku: sku
       },
     });
   }
@@ -124,7 +125,12 @@ class ProductService {
       throw new unauthorizedExeption("you are not the owner of this product");
     }
 
-    await prisma.productSKU.delete({ where: { id: skuId } });
+    await prisma.productSKU.update({
+      where: { id: skuId },
+      data: {
+        quantity: 0,
+      },
+    });
   }
 
   public async get(): Promise<Product[]> {
@@ -308,7 +314,7 @@ class ProductService {
     // } catch (e) {
     //   console.error("خطا در حذف فایل");
     // }
-    await fileRemoveService.deleteUpload(filenameToDelete, 'products');
+    await fileRemoveService.deleteUpload(filenameToDelete, "products");
 
     return { success: true };
   }

@@ -30,13 +30,23 @@ export const upload = multer({ storage: storage });
 
 //! for category image upload
 const storageCategory = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadFileDir = path.join(__dirname, "../../../image", "category");
-    cb(null, uploadFileDir);
+  // destination: function (req, file, cb) {
+  //   const uploadFileDir = path.join(__dirname, "../../../image", "category");
+  //   cb(null, uploadFileDir);
+  // },
+  // filename: function (req, file, cb) {
+  //   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+  //   cb(null, `${uniqueSuffix}-${file.originalname}`);
+  // },
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(process.cwd(), "image", "category");
+    cb(null, uploadPath);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
+
+    const safeOriginalName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${uniqueSuffix}-${safeOriginalName}`);
   },
 });
 
