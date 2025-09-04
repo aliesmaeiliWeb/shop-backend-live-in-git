@@ -20,56 +20,13 @@ class ProductController {
   }
 
   //+ read product
-  public async read(req: Request, res: Response) {
-    // const product = await productService.get(); //? normal get
-
-    const page =
-      parseInt(req.query.page as string) || UtilsConstant.Default_Page;
-    const pageSize =
-      parseInt(req.query.pageSize as string) || UtilsConstant.Default_Page_size;
-    const sortBy =
-      (req.query.sortBy as string) || UtilsConstant.Default_Sort_By;
-    const sortDir =
-      (req.query.sortDir as string) || UtilsConstant.Default_Sort_Dir;
-
-    const where: any = {};
-    const filterBy: string = req.query.filterBy as string;
-    // const filterValueParams: string = req.query.filterValue as string;
-    const filterValueParams = req.query.filterValue
-      ? String(req.query.filterValue)
-      : "";
-
-    // console.log(filterValueParams, filterBy);
-
-    if (filterBy && filterValueParams) {
-      //+ "lt.5" ===> split("0") => ["lt", "5"]
-      const [filterCondition, filterValue] = filterValueParams.split(".");
-
-      const operation = ["lt", "lte", "gt", "gte"];
-
-      if (filterCondition === "eq") {
-        where[filterBy] = parseInt(filterValue);
-      }
-
-      if (operation.includes(filterCondition)) {
-        where[filterBy] = { [filterCondition]: parseInt(filterValue) };
-      }
-      console.log("filter: ", filterCondition, filterValue);
-    }
-
-    const product = await productService.getPagination(
-      page,
-      pageSize,
-      sortBy,
-      sortDir,
-      where
-    ); //? pagination get
+  public async getAll(req: Request, res: Response) {
+    const result = await productService.getAll(req.query);
 
     return res.status(HTTP_STATUS.ok).json({
-      message: "get all product successfully!",
-      totalLegth: product.length,
-      data: product,
-    });
+      message: "get product is successfully",
+      ...result
+    })
   }
 
   //+ readone product

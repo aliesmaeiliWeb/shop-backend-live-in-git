@@ -124,7 +124,7 @@ class CommentService {
 
     if (categoryId) {
       whereClause.product = {
-        categoryId: categoryId,
+        categoryId: parseInt(categoryId, 10),
       };
     }
 

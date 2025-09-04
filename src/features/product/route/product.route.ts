@@ -13,7 +13,7 @@ import parseDynamicAttribute from "../../../globals/middlewares/productChange.mi
 import { commentRoute } from "../../comment/route/comment.route";
 
 const productRoute = express.Router();
-productRoute.get("/", asyncWrapper(productController.read));
+productRoute.get("/", asyncWrapper(productController.getAll));
 productRoute.get(
   "/:id",
   asyncWrapper(productController.readOne.bind(productController))

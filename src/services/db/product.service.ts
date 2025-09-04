@@ -4,7 +4,7 @@ import {
   ICreateSKUBody,
   IProductsBody,
 } from "../../features/product/interface/product.interface";
-import { Product, ProductSKU } from "../../generated/prisma";
+import { Prisma, Product, ProductSKU } from "../../generated/prisma";
 import { UtilsConstant } from "../../globals/constants/utils";
 import { Helper } from "../../globals/helpers/helpers";
 import { checkpermission } from "../../globals/middlewares/auth.middleware";
@@ -103,7 +103,7 @@ class ProductService {
       data: {
         price: price ? parseFloat(price) : undefined,
         quantity: quantity ? parseInt(quantity) : undefined,
-        sku: sku
+        sku: sku,
       },
     });
   }
@@ -139,38 +139,6 @@ class ProductService {
     return products;
   }
 
-  //! for pagination
-  public async getPagination(
-    page: number = UtilsConstant.Default_Page,
-    pageSize: number = UtilsConstant.Default_Page_size,
-    sortBy: string = UtilsConstant.Default_Sort_By,
-    sortDir: string = UtilsConstant.Default_Sort_Dir,
-    where = {}
-  ) {
-    //+ cache
-    const cacheKey = `product:page${page}:size:${pageSize}:sortBy:${sortBy}:sortDir:${sortDir}:where:${JSON.stringify(
-      where
-    )}`;
-
-    //+chech cache exist
-    const cachedProducts = myCatch.get<Product[]>(cacheKey);
-    if (cachedProducts) {
-      return cachedProducts;
-    }
-
-    const skip: number = (page - 1) * pageSize; // (2 -1) *10 = 10 products
-    const take: number = pageSize;
-
-    const product: Product[] = await prisma.product.findMany({
-      where,
-      skip,
-      take,
-      orderBy: {
-        [sortBy]: sortDir,
-      },
-    });
-    return product;
-  }
   //+ get product width all skus
   public async getOne(id: number): Promise<Product & { skus: ProductSKU[] }> {
     //+ cache
@@ -246,6 +214,50 @@ class ProductService {
     flushProductsList();
 
     return product;
+  }
+
+  public async getAll(options: {
+    page?: number;
+    search?: string;
+    categoryId?: string;
+    limit?: number;
+  }) {
+    const { page = 1, search, categoryId, limit = 5 } = options;
+    const skip = (page - 1) * limit;
+
+    const whereClause: Prisma.ProductWhereInput = {};
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search } },
+        { shortDescription: { contains: search } },
+      ];
+    }
+
+    if (categoryId && categoryId !== "all") {
+      whereClause.categoryId = parseInt(categoryId);
+    }
+
+    const [product, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where: whereClause,
+        include: {
+          category: { select: { name: true } },
+          skus: { select: { quantity: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: skip,
+        take: limit,
+      }),
+      prisma.product.count({ where: whereClause }),
+    ]);
+
+    return {
+      data: product,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+    };
   }
 
   public async getProduct(id: number): Promise<Product> {
