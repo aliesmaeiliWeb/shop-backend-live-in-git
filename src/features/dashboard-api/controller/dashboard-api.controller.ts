@@ -3,14 +3,20 @@ import { dashboardService } from "../../../services/db/dashboard.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
 
 class DashboardController {
-    public async getStats(req:Request, res:Response) {
-        const stats = await dashboardService.getDashboardState();
+  public async getCards(req: Request, res: Response) {
+    const data = await dashboardService.getStatsCards();
+    res.status(HTTP_STATUS.ok).json({ data });
+  }
 
-        return res.status(HTTP_STATUS.ok).json({
-            message: "dashbord stats fetch successfully",
-            data: stats
-        })
-    }
+  public async getChart(req: Request, res: Response) {
+    const data = await dashboardService.getSalesChart();
+    res.status(HTTP_STATUS.ok).json({ data });
+  }
+
+  public async getRecents(req: Request, res: Response) {
+    const data = await dashboardService.getRecentOrders();
+    res.status(HTTP_STATUS.ok).json({ data });
+  }
 }
 
 export const dashboardController: DashboardController =

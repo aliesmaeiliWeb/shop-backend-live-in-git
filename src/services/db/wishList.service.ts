@@ -1,90 +1,86 @@
-import { request } from "http";
 import { prisma } from "../../prisma";
-import { WishList } from "../../generated/prisma";
-import {
-  BadRequestException,
-  notFoundExeption,
-} from "../../globals/middlewares/error.middleware";
-import { IWishlistBody } from "../../features/wishList/interface/wishlist.interface";
+import { notFoundExeption } from "../../globals/middlewares/error.middleware";
 
 class WishlistService {
-  public async add(
-    requestBody: IWishlistBody,
-    currentUser: UserPayload
-  ): Promise<void> {
-    const { productId } = requestBody;
-
-    //+ check
-    const wishlist = await this.getWishList(productId, currentUser.id);
-    // to check for duplication
-    if (wishlist) {
-      throw new BadRequestException(
-        `this product whith id : ${productId} alreadey exist`
-      );
-    }
-
-    await prisma.wishList.create({
-      data: {
-        productId,
-        userId: currentUser.id,
-      },
+  //! toggle wishlist item : if the item is already in the wishlist , remove it, if not , add it
+  public async toggle(userId: string, productId: string) {
+    //? check if the product actually exits
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
     });
-  }
-
-  public async remove(productId: number, currentUser: UserPayload) {
-    if ((await this.getCountWishlist(productId, currentUser.id)) <= 0) {
-      throw new notFoundExeption(`product in wishlist not found`);
+    if (!product) {
+      throw new notFoundExeption("محصولی یافت نشد");
     }
 
-    await prisma.wishList.delete({
+    //? check if the item is already in the user's wisthlist
+    const existingItem = await prisma.wishList.findUnique({
       where: {
         userId_productId: {
+          userId,
           productId,
-          userId: currentUser.id,
         },
       },
     });
-  }
 
-  public async get(currentUser: UserPayload): Promise<WishList[]> {
-    const wishlist: WishList[] = await prisma.wishList.findMany({
-        where:{
-            userId: currentUser.id
+    if (existingItem) {
+      //? remove from wishlist
+      await prisma.wishList.delete({
+        where: {
+          userId_productId: {
+            userId,
+            productId,
+          },
         },
-        include:{
-            product: true,
-        }
-    });
-
-    return wishlist
+      });
+      return {
+        status: "removed",
+        message: "محصول از لیست علاقه مندی ها حذف شد",
+      };
+    } else {
+      //? add to wishlist
+      await prisma.wishList.create({
+        data: {
+          userId,
+          productId,
+        },
+      });
+      return {
+        status: "added",
+        message: "محصول به لیست علاقه مندی ها اضافه شد",
+      };
+    }
   }
 
-  private async getWishList(
-    productId: number,
-    userId: number
-  ): Promise<WishList | null> {
-    const wishlist: WishList | null = await prisma.wishList.findFirst({
-      where: {
-        productId,
-        userId,
+  //! get user's wishlist: we need to return the product details(name, image, price)
+  public async getMyWishlist(userId: string) {
+    const wishlist = await prisma.wishList.findMany({
+      where: { userId },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            mainImage: true,
+            basePrice: true,
+            discountPercent: true,
+          },
+        },
       },
     });
 
     return wishlist;
   }
 
-  private async getCountWishlist(
-    productId: number,
-    userId: number
-  ): Promise<number> {
-    const count: number = await prisma.wishList.count({
+  //! check specific product status :Used when loading a single product page to see if the heart should be red or white
+  public async isInWishList(userId: string, productId: string) {
+    const item = await prisma.wishList.findUnique({
       where: {
-        productId,
-        userId,
+        userId_productId: { userId, productId },
       },
     });
 
-    return count;
+    return !!item; // returnd true or false
   }
 }
 export const wishlistService: WishlistService = new WishlistService();

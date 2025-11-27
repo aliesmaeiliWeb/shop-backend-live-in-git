@@ -58,7 +58,7 @@ export async function preventInActiveUser(
   res: Response,
   next: NextFunction
 ) {
-  const user = await userService.get(req.currentUser.id);
+  const user = await userService.getOne(req.currentUser.id.toString());
 
   if (!user) {
     throw new notFoundExeption(

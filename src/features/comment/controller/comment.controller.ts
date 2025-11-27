@@ -1,85 +1,65 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 import { commentService } from "../../../services/db/comment.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
-import { BadRequestException } from "../../../globals/middlewares/error.middleware";
 
 class CommentController {
-  public async create(req: Request, res: Response, next: NextFunction) {
-    const productId = Number(req.params.productId);
-    const { text, rating } = req.body;
-    const authorId = req.currentUser!.id;
-
-    const comment = await commentService.createComment({
-      text,
-      rating,
-      authorId,
-      productId,
+  public async create(req: Request, res: Response) {
+    const comment = await commentService.create({
+      text: req.body.text,
+      rating: req.body.rating,
+      userId: req.currentUser.id.toString(),
+      productId: req.params.productId, // از URL میگیریم
     });
-    res.status(HTTP_STATUS.create).json({
-      message: "comment submitted and is successfully",
-      data: {
-        comment,
-      },
-    });
+    res
+      .status(HTTP_STATUS.create)
+      .json({ message: "Comment submitted", data: comment });
   }
 
-  public async update(req: Request, res: Response, next: NextFunction) {
-    const commentId = Number(req.params.commentId);
-    const updatedComment = await commentService.updateComment(
-      commentId,
-      req.body,
-      req.currentUser
+  public async update(req: Request, res: Response) {
+    const comment = await commentService.update(
+      req.params.commentId,
+      req.currentUser.id.toString(),
+      req.currentUser.role,
+      req.body
     );
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "Comment updated successfully.",
-      data: updatedComment,
-    });
+    res
+      .status(HTTP_STATUS.ok)
+      .json({ message: "Comment updated", data: comment });
   }
 
-  public async delete(req: Request, res: Response, next: NextFunction) {
-    const commentId = Number(req.params.commentId);
-    await commentService.deleteComment(commentId, req.currentUser);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "Comment deleted successfully.",
-    });
+  public async delete(req: Request, res: Response) {
+    await commentService.delete(
+      req.params.commentId,
+      req.currentUser.id.toString(),
+      req.currentUser.role
+    );
+    res.status(HTTP_STATUS.ok).json({ message: "Comment deleted" });
   }
 
-  public async getForProduct(req: Request, res: Response, next: NextFunction) {
-    const productId = Number(req.params.productId);
-    const result = await commentService.getCommentsByProductId(
-      productId,
+  public async getForProduct(req: Request, res: Response) {
+    const result = await commentService.getProductComment(
+      req.params.productId,
       req.query
     );
-
-    res.status(HTTP_STATUS.ok).json({
-      result,
-    });
-  }
-
-  public async getAll(req: Request, res: Response, next: NextFunction) {
-    const result = await commentService.getAllComments(req.query);
     res.status(HTTP_STATUS.ok).json(result);
   }
 
-  public async updateStatus(req: Request, res: Response, next: NextFunction) {
-    const { commentId: commentIDParam } = req.params;
-    const commentId = parseInt(commentIDParam, 10);
+  //? --- Admin Methods ---
 
-    if (isNaN(commentId)) {
-      throw new BadRequestException("Comment ID must be a valid number.");
-    }
+  public async getAllAdmin(req: Request, res: Response) {
+    const result = await commentService.getAllCommentsAdmin(req.query);
+    res.status(HTTP_STATUS.ok).json(result);
+  }
 
-    const { status } = req.body;
-    const updatedComment = await commentService.updateCommentStatus(
-      commentId,
-      status
+  public async updateStatus(req: Request, res: Response) {
+    const { isApproved } = req.body;
+    const comment = await commentService.approveComment(
+      req.params.commentId,
+      isApproved
     );
-    res.status(HTTP_STATUS.ok).json({
-      message: "Comment status updated successfully.",
-      data: updatedComment,
-    });
+    res
+      .status(HTTP_STATUS.ok)
+      .json({ message: "Status updated", data: comment });
   }
 }
 

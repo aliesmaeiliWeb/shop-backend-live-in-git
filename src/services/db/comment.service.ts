@@ -1,6 +1,6 @@
 import {
-  ICommentData,
-  IUpdateCommentStatus,
+  ICreateComment,
+  IUpdateComment,
 } from "../../features/comment/interface/comment.interface";
 import {
   notFoundExeption,
@@ -9,161 +9,104 @@ import {
 import { prisma } from "../../prisma";
 
 class CommentService {
-  public async createComment(data: ICommentData) {
-    const { text, rating, authorId, productId } = data;
-
-    return prisma.comment.create({
+  //! add new comment
+  public async create(data: ICreateComment) {
+    return await prisma.comment.create({
       data: {
-        text,
-        rating,
-        productId,
-        authorId,
-        status: "PENDING",
+        text: data.text,
+        rating: data.rating,
+        productId: data.productId,
+        isApproved: false,
+        userId: data.userId,
       },
     });
   }
 
-  public async updateComment(
-    commentId: number,
-    data: IUpdateCommentStatus,
-    currentUser: UserPayload
-  ) {
-    const { text, rating } = data;
+  //! update comment
+  public async update(commentId: string, userId: string, role: string, data: IUpdateComment){
+    const comment = await prisma.comment.findUnique({where: {id: commentId}});
 
-    const comment = await prisma.comment.findUnique({
-      where: { id: commentId },
-    });
+    if (!comment) throw new notFoundExeption("کامنتی یافت نشد");
+    if (comment.userId !== userId && role !== "Admin") throw new unauthorizedExeption("برای ثبت نظر ابتدا وارد شوید");
 
-    if (!comment) {
-      throw new notFoundExeption("comment not found");
-    }
-
-    if (comment.authorId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the author of this comment");
-    }
-
-    return prisma.comment.update({
-      where: { id: commentId },
+    return await prisma.comment.update({
+      where: {id: commentId},
       data: {
-        text,
-        rating,
-        status: "PENDING",
+        text: data.text,
+        rating: data.rating,
+        isApproved: role === "Admin" ? true : false,
       },
     });
   }
 
-  public async deleteComment(commentId: number, currentUser: UserPayload) {
-    const comment = await prisma.comment.findUnique({
-      where: { id: commentId },
-    });
+  //! delete comment
+  public async delete(commentId: string, userId: string, role: string) {
+    const comment = await prisma.comment.findUnique({where: {id: commentId}})
+    if (!comment) throw new notFoundExeption("کامنتی یافت نشد");
 
-    if (!comment) {
-      throw new notFoundExeption("comment not found");
+    if (role !== "Admin" && comment.userId !== userId) {
+      throw new unauthorizedExeption("شما دسترسی لازم برای حذف نظر را ندارید");
     }
 
-    if (comment.authorId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the author of this comment");
-    }
-
-    await prisma.comment.delete({
-      where: { id: commentId },
-    });
+    await prisma.comment.delete({where: {id: commentId}});
   }
 
-  public async getCommentsByProductId(productId: number, options: any) {
-    const { rating, page = 1, limit = 10 } = options;
+  //! get comment => product
+  public async getProductComment(productId: string, query: any) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
-      productId,
-      status: "APPROVED",
-    };
+    const where = {productId, isApproved: true};
 
-    if (rating) {
-      whereClause.rating = parseInt(rating, 10);
-    }
+    const [comments, total] = await prisma.$transaction([
+      prisma.comment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { name: true, lastName: true, avatar: true } } },
+      }),
+      prisma.comment.count({ where }),
+    ]);
 
-    const comments = await prisma.comment.findMany({
-      where: whereClause,
-      include: {
-        author: {
-          select: { name: true, lastName: true, avatar: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: parseInt(limit, 10),
-      skip,
-    });
+    return { comments, total, page, totalPages: Math.ceil(total / limit) };
+  };
 
-    const totalComments = await prisma.comment.count({
-      where: whereClause,
-    });
-
-    return {
-      comments,
-      totalComments,
-      totalPage: Math.ceil(totalComments / limit),
-    };
-  }
-
-  public async getAllComments(options: any) {
-    const {
-      status,
-      rating,
-      categoryId,
-      productId,
-      page = 1,
-      limit = 10,
-    } = options;
+  //! get all comments
+  public async getAllCommentsAdmin(query: any) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
-    const whereClause: any = {};
 
-    if (status) whereClause.status = status;
-    if (rating) whereClause.rating = parseInt(rating, 10);
-    if (productId) whereClause.productId = productId;
-
-    if (categoryId) {
-      whereClause.product = {
-        categoryId: parseInt(categoryId, 10),
-      };
+    const where: any = {};
+    if (query.isApproved !== undefined) {
+      where.isApproved = query.isApproved === "true";
     }
 
-    const comments = await prisma.comment.findMany({
-      where: whereClause,
-      include: {
-        author: {
-          select: { name: true, email: true },
+    const [comments, total] = await prisma.$transaction([
+      prisma.comment.findMany({
+       where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { 
+            user: { select: { name: true, email: true } },
+            product: { select: { name: true } }
         },
-        product: {
-          select: { name: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: parseInt(limit, 10),
-      skip,
-    });
+      }),
 
-    const totalComments = await prisma.comment.count({ where: whereClause });
-    return {
-      comments,
-      totalComments,
-      totalPage: Math.ceil(totalComments / limit),
-    };
+      prisma.comment.count({ where }),
+    ]);
+
+    return { comments, total, page };
   }
-
-  public async updateCommentStatus(
-    commentId: number,
-    status: "APPROVED" | "REJECTED"
-  ) {
-    const comment = await prisma.comment.findUnique({
-      where: { id: commentId },
-    });
-    if (!comment) {
-      throw new notFoundExeption("comment not found");
-    }
-    return prisma.comment.update({
-      where: { id: commentId },
-      data: { status },
+  
+  //! accept or reject comment
+  public async approveComment (commentId: string, isApproved: boolean) {
+    return await prisma.comment.update({
+      where: {id:commentId},
+      data: {isApproved},
     });
   }
 }

@@ -1,232 +1,186 @@
 import path from "path";
-import fs from "fs/promises";
 import {
-  ICreateSKUBody,
-  IProductsBody,
+  IProductCreate,
+  IProductUpdate,
 } from "../../features/product/interface/product.interface";
-import { Prisma, Product, ProductSKU } from "../../generated/prisma";
-import { UtilsConstant } from "../../globals/constants/utils";
-import { Helper } from "../../globals/helpers/helpers";
-import { checkpermission } from "../../globals/middlewares/auth.middleware";
+import { Prisma } from "../../generated/prisma";
 import {
+  BadRequestException,
   notFoundExeption,
   unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 import { fileRemoveService } from "./file-remove.service";
-import { json } from "stream/consumers";
-import myCatch from "../../cache/cache";
-import flushProductsList from "../../cache/product.cache";
 
 class ProductService {
-  public async creatBase(
-    requestBody: IProductsBody,
-    currentUser: UserPayload,
-    files: Express.Multer.File[]
-  ): Promise<Product> {
-    const {
-      name,
-      longDescription,
-      shortDescription,
-      price,
-      categoryId,
-      dynamicAttributes,
-      discountPercentage,
-    } = requestBody;
-
-    const product: Product = await prisma.product.create({
-      data: {
-        name,
-        longDescription,
-        shortDescription,
-        main_Image: JSON.stringify(files.map((file) => file.filename)),
-        categoryId: parseInt(categoryId),
-        shopId: currentUser.id,
-        price: parseFloat(price),
-        dynamicAttributes: JSON.stringify(dynamicAttributes),
-        discountPercentage: parseInt(requestBody.discountPercentage!),
-      },
-    });
-
-    flushProductsList();
-
-    return product;
-  }
-
-  //+ add sku to product
-  public async addSku(
-    productId: number,
-    requestBody: ICreateSKUBody,
-    currentUser: UserPayload
-  ): Promise<ProductSKU> {
-    const { sku, price, quantity } = requestBody;
-    const product = await this.getOne(productId);
-
-    if (product.shopId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the owner of this product");
-    }
-
-    return await prisma.productSKU.create({
-      data: {
-        productId,
-        sku,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-      },
-    });
-  }
-
-  public async editSku(
-    skuId: number,
-    requestBody: ICreateSKUBody,
-    currentUser: UserPayload
-  ): Promise<ProductSKU> {
-    const { price, quantity, sku } = requestBody;
-
-    const skus = await prisma.productSKU.findUnique({
-      where: { id: skuId },
-      include: {
-        product: true,
-      },
-    });
-
-    if (!skus) {
-      throw new notFoundExeption(`sku with id: ${skuId} not found`);
-    }
-
-    if (skus.product.shopId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the owner of this product");
-    }
-
-    return await prisma.productSKU.update({
-      where: { id: skuId },
-      data: {
-        price: price ? parseFloat(price) : undefined,
-        quantity: quantity ? parseInt(quantity) : undefined,
-        sku: sku,
-      },
-    });
-  }
-
-  public async removeSku(
-    skuId: number,
-    currentUser: UserPayload
-  ): Promise<void> {
-    const sku = await prisma.productSKU.findUnique({
-      where: { id: skuId },
-      include: { product: true },
-    });
-
-    if (!sku) {
-      throw new notFoundExeption(`sku with id ${skuId} not found`);
-    }
-
-    if (sku.product.shopId !== currentUser.id) {
-      throw new unauthorizedExeption("you are not the owner of this product");
-    }
-
-    await prisma.productSKU.update({
-      where: { id: skuId },
-      data: {
-        quantity: 0,
-      },
-    });
-  }
-
-  public async get(): Promise<Product[]> {
-    const products: Product[] = await prisma.product.findMany();
-
-    return products;
-  }
-
-  //+ get product width all skus
-  public async getOne(id: number): Promise<Product & { skus: ProductSKU[] }> {
-    //+ cache
-    const cacheKey = `product:${id}`;
-
-    const cachedProduct = myCatch.get<Product & { skus: ProductSKU[] }>(
-      cacheKey
+  private generateSlug(name: string): string {
+    return (
+      name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-") +
+      "-" +
+      Date.now().toString().slice(-4)
     );
-    if (cachedProduct) {
-      return cachedProduct;
-    }
-
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        skus: true,
-      },
-    });
-
-    if (!product) {
-      throw new notFoundExeption(`product with id : ${id} not found`);
-    }
-    return product;
   }
 
-  public async edit(
-    id: number,
-    requestBody: IProductsBody,
-    currentUser: UserPayload,
-    files: Express.Multer.File[]
-  ): Promise<Product> {
-    const {
-      name,
-      longDescription,
-      shortDescription,
-      main_Image,
-      categoryId,
-      price,
-      dynamicAttributes,
-      discountPercentage,
-    } = requestBody;
-    const currentProduct = await this.getProduct(id);
-
-    if (!currentProduct) {
-      throw new notFoundExeption(`محصول با آیدی ${id} یافت نشد`);
-    }
-
-    Helper.checkPermission(currentProduct, "shopId", currentUser);
-
-    const newImageFileName = files ? files.map((file) => file.filename) : [];
-    const existingImage = JSON.parse(currentProduct.main_Image || "[]");
-    const allImage = [...existingImage, ...newImageFileName];
-
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        longDescription,
-        shortDescription,
-        main_Image: JSON.stringify(allImage),
-        category: categoryId
-          ? { connect: { id: parseInt(categoryId) } }
-          : undefined,
-        price: price ? parseFloat(price) : undefined,
-        dynamicAttributes: JSON.stringify(dynamicAttributes),
-        discountPercentage: requestBody.discountPercentage
-          ? parseInt(requestBody.discountPercentage)
-          : undefined,
-      },
-    });
-
-    myCatch.del(`product:${id}`);
-    flushProductsList();
+  private async findProductById(id: string) {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) throw new notFoundExeption("محصولی یافت نشد");
 
     return product;
   }
 
-  public async getAll(options: {
-    page?: number;
-    search?: string;
-    categoryId?: string;
-    limit?: number;
-  }) {
-    const { page = 1, search, categoryId, limit = 5 } = options;
+  //! create with price history log
+  public async createProduct(
+    data: IProductCreate,
+    ownerId: string,
+    mainImageUrl: string,
+    galleryImageUrls: string[],
+  ) {
+    const slug = this.generateSlug(data.name);
+
+    return await prisma.$transaction(async (tx) => {
+      //? check sku 
+      if (data.skus && data.skus.length > 0) {
+        const skuCode =data.skus.map((s) => s.sku);
+        const existingSku = await tx.productSKU.findFirst({
+          where: {sku: {in: skuCode}},
+        });
+        if (existingSku) {
+          throw new BadRequestException(`کد SKU تکراری است: ${existingSku.sku}`);
+        }
+      }
+
+      //? create the parent product
+      const product = await tx.product.create({
+        data: {
+          name: data.name,
+          slug: slug,
+          shortDescription: data.shortDescription,
+          longDescription: data.longDescription,
+          mainImage: mainImageUrl,
+          basePrice: Number(data.basePrice),
+          discountPercent: data.discountPercent
+            ? Number(data.discountPercent)
+            : 0,
+          categoryId: data.categoryId,
+          ownerId: ownerId,
+        },
+      });
+
+      //? log initial price
+      await tx.productPriceHistory.create({
+        data: {
+          productId: product.id,
+          oldPrice: 0,
+          newPrice: Number(data.basePrice),
+          changedBy: ownerId,
+        },
+      });
+
+      //? save gallery images
+      if (galleryImageUrls.length > 0) {
+        await tx.productGallery.createMany({
+          data: galleryImageUrls.map((url) => ({
+            productId: product.id,
+            imageUrl: url,
+          }))
+        })
+      }
+
+      //? create skus
+      if (data.skus && data.skus.length > 0) {
+        for (const sku of data.skus) {
+          await tx.productSKU.create({
+            data: {
+              productId: product.id,
+              sku: sku.sku,
+              price: Number(sku.price),
+              quantity: Number(sku.quantity),
+              attributesJson: sku.attributes,
+            },
+          });
+        }
+      }
+
+      //? link attributes for filtering
+      if (data.attributeValueIds && data.attributeValueIds.length > 0) {
+        const uniqueIds = [...new Set(data.attributeValueIds)];
+        for (const valId of uniqueIds) {
+          const exists = await tx.attributeValue.findUnique({
+            where: { id: valId },
+          });
+          if (exists) {
+            await tx.productAttribute.create({
+              data: {
+                productId: product.id,
+                attributeValueId: valId,
+              },
+            });
+          }
+        }
+      }
+
+      return product;
+    });
+  }
+
+  //! update with price tracking
+  public async updateProduct(
+    id: string,
+    data: IProductUpdate,
+    userId: string, // who is updating
+    newMainImage?: string
+  ) {
+    const product = await this.findProductById(id);
+
+    return await prisma.$transaction(async (tx) => {
+      //? check if price changed
+      if (data.basePrice && data.basePrice !== product.basePrice) {
+        await tx.productPriceHistory.create({
+          data: {
+            productId: product.id,
+            oldPrice: product.basePrice,
+            newPrice: Number(data.basePrice),
+            changedBy: userId,
+          },
+        });
+      }
+
+      return await tx.product.update({
+        where: { id },
+        data: {
+          name: data.name,
+          shortDescription: data.shortDescription,
+          longDescription: data.longDescription,
+          mainImage: newMainImage || product.mainImage,
+          basePrice: data.basePrice ? Number(data.basePrice) : undefined,
+          discountPercent: data.discountPercent
+            ? Number(data.discountPercent)
+            : undefined,
+          isActive: data.isActive,
+          categoryId: data.categoryId,
+        },
+      });
+    });
+  }
+
+  //! advanced get all filter engine
+  public async getAll(query: any) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const whereClause: Prisma.ProductWhereInput = {};
+    const { search, categoryId, minPrice, maxPrice, sort } = query;
 
+    //? base filter always exclude deleted items sort default
+    const whereClause: Prisma.ProductWhereInput = {
+      deleteAt: null,
+    };
+
+    //? search
     if (search) {
       whereClause.OR = [
         { name: { contains: search } },
@@ -234,118 +188,126 @@ class ProductService {
       ];
     }
 
-    if (categoryId && categoryId !== "all") {
-      whereClause.categoryId = parseInt(categoryId);
+    //? Category
+    if (categoryId) {
+      whereClause.categoryId = categoryId;
     }
 
-    const [product, total] = await prisma.$transaction([
+    //? price range
+    if (minPrice || maxPrice) {
+      whereClause.basePrice = {};
+      if (minPrice) whereClause.basePrice.gte = Number(minPrice);
+      if (maxPrice) whereClause.basePrice.lte = Number(maxPrice);
+    }
+
+    //? sort
+    let orderBy: any = { createdAt: "desc" };
+    if (sort === "price_asc") orderBy = { basePrice: "asc" };
+    if (sort === "price_desc") orderBy = { basePrice: "desc" };
+
+    const [products, total] = await prisma.$transaction([
       prisma.product.findMany({
         where: whereClause,
-        include: {
-          category: { select: { name: true } },
-          skus: { select: { quantity: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: skip,
+        skip,
         take: limit,
+        orderBy: orderBy,
+        include: {
+          category: { select: { name: true, slug: true } },
+          skus: {
+            where: { deletedAt: null },
+            select: { price: true, quantity: true },
+          },
+        },
       }),
       prisma.product.count({ where: whereClause }),
     ]);
 
     return {
-      data: product,
+      data: products,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalpages: Math.ceil(total / limit),
       currentPage: page,
     };
   }
 
-  public async getProduct(id: number): Promise<Product> {
-    const product = await prisma.product.findUnique({
+  //! soft delete
+  public async softDelete(id: string, ownerId: string, role: string) {
+    const product = await this.findProductById(id);
+
+    if (role !== "ADMIN" && product.ownerId !== ownerId) {
+      throw new unauthorizedExeption("شما به این بخش اجازه دسترسی ندارید");
+    }
+
+    //? instead of delate(), we update deletedAt
+    await prisma.product.update({
       where: { id },
+      data: { deleteAt: new Date() },
+    });
+
+    //? optional : sort delete all skus too
+    await prisma.productSKU.updateMany({
+      where: { productId: id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  //! get one with details
+  public async getOne(slugOrId: string) {
+    const product = await prisma.product.findFirst({
+      where: {
+        AND: [
+          { deleteAt: null }, // ensure its not deleted
+          { OR: [{ slug: slugOrId }, { id: slugOrId }] },
+        ],
+      },
       include: {
-        skus: true,
+        category: true,
+        skus: { where: { deletedAt: null } }, // exclude deleted skus
+        priceHistory: { orderBy: { createdAt: "desc" }, take: 5 }, // show last 5 price changes
+        attributes: {
+          include: { attributeValue: { include: { attribute: true } } },
+        },
+        comments: true,
       },
     });
 
-    if (!product) {
-      throw new notFoundExeption(`product width id: ${id} not found!`);
-    }
-
+    if (!product) throw new notFoundExeption("محصولی یافت نشد");
     return product;
   }
 
-  public async remove(id: number, currentUser: UserPayload) {
-    const currentProduct = await this.getProduct(id);
-
-    Helper.checkPermission(currentProduct, "shopId", currentUser);
-
-    await prisma.product.delete({
-      where: {
-        id,
-      },
+  //! gallery helpers
+  public async addImagesToGallery(productId: string, imageUrls: string[]) {
+    return await prisma.productGallery.createMany({
+      data: imageUrls.map((url) => ({ productId, imageUrl: url })),
     });
-
-    myCatch.del(`product:${id}`);
-    flushProductsList();
   }
 
-  public async removeImage(productId: number, imageUrlDelete: string) {
-    const product = await prisma.product.findUnique({
-      where: {
-        id: productId,
-      },
+  //! remove gallery
+  public async removeGalleryImage(galleryId: string) {
+    const img = await prisma.productGallery.findUnique({
+      where: {id: galleryId},
     });
+    if (!img) throw new notFoundExeption("تصویری یافت نشد");
 
-    if (!product) {
-      throw new notFoundExeption(`محصول با آیدی  ${productId} یافت نشد`);
-    }
+    //? remove file from disk
+    const filename = path.basename(img.imageUrl);
+    await fileRemoveService.deleteUpload(filename, "products");
 
-    const existingImage: string[] = JSON.parse(product.main_Image || "[]");
-    const filenameToDelete = path.basename(imageUrlDelete);
-    const updatedImage = existingImage.filter(
-      (img) => path.basename(img) !== filenameToDelete
-    );
-
-    await prisma.product.update({
-      where: {
-        id: productId,
-      },
-      data: {
-        main_Image: JSON.stringify(updatedImage),
-      },
-    });
-
-    // try {
-    //   const filePath = path.join(
-    //     __dirname,
-    //     "/image/products",
-    //     filenameToDelete
-    //   );
-    //   await fs.unlink(filePath);
-    // } catch (e) {
-    //   console.error("خطا در حذف فایل");
-    // }
-    await fileRemoveService.deleteUpload(filenameToDelete, "products");
-
-    return { success: true };
+    //? removefile for db
+    await prisma.productGallery.delete({where: {id: galleryId}});
   }
 
-  // public async getProduct(id: number): Promise<Product | null> {
-  //   const product: Product |null = await prisma.product.findFirst({
-  //     where: {id}
-  //   });
-
-  //   if (!product) return null;
-  //   return product
-  // }
-
-  public async getMyProduct(currentUser: UserPayload) {
-    const products = await prisma.product.findMany({
-      where: { shopId: currentUser.id },
+  //! for adding sku later
+  public async addSkuToProduct(productId: string, data: any) {
+    return await prisma.productSKU.create({
+      data:{
+        productId,
+        sku: data.sku,
+        price: Number(data.price),
+        quantity: Number(data.quantity),
+        attributesJson: data.attributes,
+      },
     });
-
-    return products;
   }
 }
 

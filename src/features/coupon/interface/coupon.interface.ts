@@ -1,9 +1,16 @@
-import { DiscountType } from "../../../generated/prisma";
+export interface ICreateCoupon {
+  code: string;          
+  percent: number;       
+  maxDiscount?: number;  
+  usageLimit: number;    
+  expiresAt: string;     
+}
 
-export interface ICouponBody {
-    code: string;
-    discountType: DiscountType;
-    value: number;
-    expiresAt?: string;
-    usageLimit?: number;
+export interface IUpdateCoupon {
+  code?: string;
+  percent?: number;
+  maxDiscount?: number;
+  usageLimit?: number;
+  expiresAt?: string;
+  isActive?: boolean;
 }

@@ -2,116 +2,101 @@ import { Request, Response } from "express";
 import { orderService } from "../../../services/db/order.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
 import { OrderStatus } from "../../../generated/prisma";
+import { unauthorizedExeption } from "../../../globals/middlewares/error.middleware";
 
 class OrderController {
   //+ create order
   public async create(req: Request, res: Response) {
-    const order = await orderService.createOrder(req.body, req.currentUser);
+    const order = await orderService.createOrder(
+      req.currentUser.id.toString(),
+      req.body
+    );
 
-    return res.status(HTTP_STATUS.create).json({
-      message: "order create successfully and is pendign payment",
+    res.status(HTTP_STATUS.create).json({
+      message: "سبد خرید با موفقیت ساخته شد",
       data: order,
     });
   }
 
-  //+ cancel order
-  public async cancel(req: Request, res: Response) {
-    const orderId = parseInt(req.params.id);
-    const updateOrder = await orderService.cancelOrder(
-      orderId,
-      req.currentUser
-    );
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "your order has been successfully canceled",
-      data: updateOrder,
-    });
-  }
-
-  //+ pyment order
   public async initiatePayment(req: Request, res: Response) {
-    const orderId = parseInt(req.params.orderId);
-    const result = await orderService.initiatePayment(orderId, req.currentUser);
-
-    return res.status(HTTP_STATUS.ok).json(result);
+    const result = await orderService.initiatePayment(
+      req.params.orderId,
+      req.currentUser.id.toString()
+    );
+    res.status(HTTP_STATUS.ok).json(result);
   }
 
-  //+ finaly pyment zarinpal
   public async verifyPaymentCallBack(req: Request, res: Response) {
     const { Authority, Status } = req.query;
-    const result = await orderService.verifyPayment(
-      Authority as string,
-      Status as string
-    );
 
-    // return res.redirect("به یک صفحه تایید پرداخت هدایت شود کاربر")
-    return res.status(HTTP_STATUS.ok).json(result);
+    try {
+      const result = await orderService.verifyPayment(
+        Authority as string,
+        Status as string
+      );
+
+      res.status(HTTP_STATUS.ok).json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "خطا" });
+    }
   }
 
-  //+ get a list of all orders with filter and search capabilities
-  public async getAll(req: Request, res: Response) {
-    const result = await orderService.getAllOrder(req.query);
-    return res.status(HTTP_STATUS.ok).json({
-      message: "get all order list successfully",
+  public async cancel(req: Request, res: Response) {
+    const result = await orderService.cancelOrder(
+      req.params.id,
+      req.currentUser.id.toString()
+    );
+    res.status(HTTP_STATUS.ok).json({
+      message: "سفارش با موفقیت لغو شد",
       data: result,
     });
   }
 
-  //+ get full details of a specific order
-  public async getOne(req:Request, res:Response) {
-    const orderId = parseInt(req.params.id);
-    const order = await orderService.getOrderById(orderId);
+  public async getMyOrder(req: Request, res: Response) {
+    const orders = await orderService.getMyOrders(
+      req.currentUser.id.toString()
+    );
+    res.status(HTTP_STATUS.ok).json({ data: orders });
+  }
 
-    return res.status(HTTP_STATUS.ok).json({
-      message: `get data by id: ${orderId} is successfully`,
+  //! admin methodes
+
+  public async getAll(req: Request, res: Response) {
+    const orders = await orderService.getAllOrders(req.query);
+    res.status(HTTP_STATUS.ok).json({ data: orders });
+  }
+
+  public async getOne(req: Request, res: Response) {
+    const order = await orderService.getOrderById(req.params.id);
+    res.status(HTTP_STATUS.ok).json({ data: order });
+  }
+
+  public async getForUser(req: Request, res: Response) {
+    const orders = await orderService.getOrderByUserId(req.params.userId);
+    res.status(HTTP_STATUS.ok).json({ data: orders });
+  }
+
+  public async updateStatus(req: Request, res: Response) {
+    const { status, trackingCode } = req.body;
+    const order = await orderService.updateOrderStatus(
+      req.params.id,
+      status as OrderStatus,
+      trackingCode
+    );
+
+    res.status(HTTP_STATUS.ok).json({
+      message: "Order status updated",
       data: order
-    })
+    });
   }
 
-  //+ receiving all orders from a specific user by the admin
-  public async getForUser(req: Request, res:Response) {
-    const userId = parseInt(req.params.id);
-    const orders = await orderService.getOrderByUserId(userId);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: `get all order for id: ${userId} is successfully`,
-      data: orders
-    })
-  }
-
-  //+ changing the status of an order by admin
-  public async updateStatus(req:Request, res:Response) {
-    const orderId = parseInt(req.params.id);
-    const {status, trackingCode} = req.body;
-    const updateOrder = await orderService.updateOrderStatus(orderId, status as OrderStatus, trackingCode);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "order status updated successfully",
-      data: updateOrder,
-    })    
-  }
-
-  //+canceling a paid order by admin
   public async cancelByAdmin(req:Request, res:Response) {
-    const orderId = parseInt(req.params.id);
-    const updateOrder = await orderService.cancelAndRestockOrder(orderId);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "order has been cancelled and items are restocked",
-      data: updateOrder
-    })
-  }
-  
-  //+ get the order history of the logged-in user
-  public async getMyOrder(req:Request, res:Response) {
-    const order = await orderService.getMyOrder(req.currentUser);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "user order fetched successfully",
-      data: order
-    })
+    const order = await orderService.adminCancelOrder(req.params.id);
+    res.status(HTTP_STATUS.ok).json({
+      message: "سفارش به وسیله ادمین لغو شد",
+      data: order,
+    });
   }
 }
-
 
 export const orderController: OrderController = new OrderController();

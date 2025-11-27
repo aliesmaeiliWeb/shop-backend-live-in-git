@@ -1,16 +1,31 @@
-export interface IProductsBody {
-  name: string;
-  longDescription: string;
-  shortDescription: string;
-  main_Image: string;
-  categoryId: string;
-  price: string,
-  dynamicAttributes?: string;
-  discountPercentage?: string;
-};
-
-export interface ICreateSKUBody {
+export interface ISkuCreate {
   sku: string;
-  price: string;
-  quantity: string;
+  price: number;
+  quantity: number;
+  attributes: Record<string, string>; // => { "Color": "Red", "Size": "XL" }
+}
+
+export interface IProductCreate {
+  name: string;
+  shortDescription?: string;
+  longDescription?: string;
+  categoryId: string;
+  basePrice: number;
+  discountPercent?: number;
+
+  //an array of variation
+  skus: ISkuCreate[];
+
+  //an array of attributes ids
+  attributeValueIds?: string[];
+}
+
+export interface IProductUpdate {
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
+  categoryId?: string;
+  basePrice?: number;
+  discountPercent?: number;
+  isActive?: boolean;
 }

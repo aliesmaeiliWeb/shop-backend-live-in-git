@@ -1,78 +1,74 @@
 import { IAddressBody } from "../../features/address/interface/address.interface";
-import { Address } from "../../generated/prisma";
-import { Helper } from "../../globals/helpers/helpers";
 import {
-  BadRequestException,
+  
   notFoundExeption,
+  unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 
 class AddressService {
-  public async add(requestBody: IAddressBody, currentUser: UserPayload) {
-    const { street, province, country, postalCode } = requestBody;
+  //? private helper section 
+  private async findAddress(id: string) {
+    const address = await prisma.address.findUnique({
+      where: {id}
+    });
+    if (!address) throw new notFoundExeption("آدرسی یافت نشد");
 
-    const address: Address = await prisma.address.create({
+    return address;
+  }
+
+ //? add address
+ public async add(data: IAddressBody, userId: string) {
+  const address = await prisma.address.create({
+    data: {
+      title: data.title,
+      province: data.province,
+      city: data.city,
+      street: data.street,
+      postalCode: data.postalCode,
+      userId: userId,
+    },
+  });
+  return address;
+ };
+
+ //? get all address
+ public async getAll(userId: string) {
+  return await prisma.address.findMany({
+    where: {userId: userId},
+    orderBy: {createdAt: "desc"},
+  });
+ }
+
+  //? update address
+  public async update(id: string, data: IAddressBody, userId: string) {
+    const address = await this.findAddress(id);
+
+    if (address.userId !== userId) {
+      throw new unauthorizedExeption("برای به روز رسانی آدرس نیاز است که وارد بشوید");
+    };
+
+    return await prisma.address.update({
+      where: {id},
       data: {
-        street: street,
-        postalCode: postalCode,
-        province: province,
-        country: country,
-        user: {
-          connect: {
-            id: currentUser.id,
-          },
-        },
-      },
-    });
-
-    return address;
+        title: data.title,
+        province: data.province,
+        city: data.city,
+        street: data.street,
+        postalCode: data.postalCode,
+      }
+    })
   }
 
-  public async update(id: number, requestBody: IAddressBody, currentUser: UserPayload):Promise<Address> {
-    const { street, province, country, postalCode } = requestBody;
+  //? remove address
+  public async remove(id: string, userId: string) {
+    const address = await this.findAddress(id);
 
-    const addressUpdate = await prisma.address.update({
-      where: { id },
-      data: {
-        street: street,
-        postalCode: postalCode,
-        province: province,
-        country: country,
-      },
-    });
+    if (address.userId !== userId) {
+      throw new unauthorizedExeption("برای به روز رسانی آدرس نیاز است که وارد بشوید");
+    };
 
-    return addressUpdate;
-  }
-
-  public async remove(id: number, currentUser: UserPayload) {
-    const address = await this.getOne(id);
-    if (!address) {
-      throw new notFoundExeption(`not found address width id : ${id}`);
-    }
-
-    Helper.checkPermission(address!, "userId", currentUser);
-
-    await prisma.address.delete({
-      where: { id },
-    });
-  }
-
-  public async get(currentUser: UserPayload) {
-    const address: Address[] = await prisma.address.findMany({
-        where: {
-            userId: currentUser.id
-        }
-    });
-
-    return address;
-  }
-
-  private async getOne(id: number): Promise<Address | null> {
-    const address = await prisma.address.findFirst({
-      where: { id },
-    });
-
-    return address;
+    await prisma.address.delete({ where: { id } });
   }
 }
 

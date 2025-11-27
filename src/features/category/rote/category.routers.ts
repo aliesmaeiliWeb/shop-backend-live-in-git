@@ -2,41 +2,38 @@ import express from "express";
 import { categoryController } from "../controller/category.controller";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
-import { CategorySchema } from "../schema/category.schema";
-import multer from "multer";
-import path from "path";
-import {
-  checkpermission,
-  preventInActiveUser,
-  verifyUser,
-} from "../../../globals/middlewares/auth.middleware";
+import { CategoryCreateSchema, CategoryUpdateSchema } from "../schema/category.schema";
+import { checkpermission, preventInActiveUser, verifyUser } from "../../../globals/middlewares/auth.middleware";
 import { categoryUpload } from "../../../globals/helpers/multer";
 
 const categoryRoute = express.Router();
-//+ every users can do this action
-categoryRoute.get("/", asyncWrapper(categoryController.getAll));
-categoryRoute.get("/:id", asyncWrapper(categoryController.get));
 
-//+ only verify user and user active and admin 
+// Public
+categoryRoute.get("/", asyncWrapper(categoryController.getAll.bind(categoryController)));
+categoryRoute.get("/:id", asyncWrapper(categoryController.getOne.bind(categoryController)));
+
+// Admin Only
 categoryRoute.use(verifyUser);
-categoryRoute.use(checkpermission("Admin"));
 categoryRoute.use(preventInActiveUser);
+categoryRoute.use(checkpermission("ADMIN"));
 
 categoryRoute.post(
   "/",
   categoryUpload.single("imageUrl"),
-  validateShema(CategorySchema),
-  asyncWrapper(categoryController.create)
+  validateShema(CategoryCreateSchema),
+  asyncWrapper(categoryController.create.bind(categoryController))
 );
+
 categoryRoute.put(
   "/:id",
   categoryUpload.single("imageUrl"),
-  validateShema(CategorySchema),
-  asyncWrapper(categoryController.update)
+  validateShema(CategoryUpdateSchema),
+  asyncWrapper(categoryController.update.bind(categoryController))
 );
-categoryRoute.delete("/:id", asyncWrapper(categoryController.delete));
-categoryRoute.get(
-  "/:id/attributes",
-  asyncWrapper(categoryController.getAttribute)
+
+categoryRoute.delete(
+  "/:id",
+  asyncWrapper(categoryController.delete.bind(categoryController))
 );
+
 export default categoryRoute;

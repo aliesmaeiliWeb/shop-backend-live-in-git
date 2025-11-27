@@ -1,138 +1,134 @@
-import { ICategoryBody } from "../../features/category/interface/Category.interface";
-import { Category } from "../../generated/prisma";
-import { notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 
-class CategoryServer {
-  public async add(
-    requestBody: ICategoryBody,
-    imageUrl: string
-  ): Promise<Category> {
-    const { name, icon, attributeIds } = requestBody; //? get for controller => req.body
+import {
+  BadRequestException,
+  notFoundExeption,
+} from "../../globals/middlewares/error.middleware";
+import {
+  ICategoryCreate,
+  ICategoryUpdate,
+} from "../../features/category/interface/Category.interface";
 
-    console.log("Service - Data to Prisma:", {
-    name,
-    icon,
-    imageUrl,
-    attributes: {
-      connect: attributeIds?.map((id) => ({ id: Number(id) })),
-    },
-  });
+class CategoryService {
+  //? --- HELPER: Slug Generator ---
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // Remove special chars
+      .replace(/\s+/g, "-"); // Replace spaces with -
+  }
 
-    const category: Category = await prisma.category.create({
+  private async findCategoryById(id: string) {
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category) {
+      throw new notFoundExeption(`دسته بندی با شناسه ${id} یافت نشد`);
+    }
+    return category;
+  }
+
+  private async checkSlugUnique(slug: string) {
+    const existing = await prisma.category.findUnique({ where: { slug } });
+    if (existing) {
+      throw new BadRequestException(
+        "دسته بندی با این نام (Slug تکراری) موجود است."
+      );
+    }
+  }
+
+  public async createCategory(data: ICategoryCreate, imageUrl?: string) {
+    const slug = this.generateSlug(data.name);
+
+    await this.checkSlugUnique(slug);
+
+    const category = await prisma.category.create({
       data: {
-        name,
-        icon,
-        imageUrl,
-        attributes: {
-          //? connect attribute widht id's
-          connect: attributeIds?.map((id) => ({ id: Number(id) })),
-        },
+        name: data.name,
+        slug: slug,
+        parentId: data.parentId ? data.parentId : null,
+        icon: data.icon || "",
+        imageUrl: imageUrl || "",
       },
     });
 
     return category;
   }
 
-  public async read(): Promise<Category[]> {
-    const categories: Category[] = await prisma.category.findMany({
+  public async getAllCategories() {
+    //? Fetch Tree Structure (Root -> Children)
+    return await prisma.category.findMany({
+      where: { parentId: null }, // Get only parents
+      orderBy: { id: "asc" },
       include: {
-        attributes: true,
-      },
-    });
-
-    return categories;
-  }
-
-  public async readOne(id: number): Promise<Category> {
-    const category = await this.getCountCategory(id);
-    return category;
-  }
-
-  public async edit(
-    id: number,
-    requestBody: ICategoryBody,
-    newImageUrl?: string
-  ) {
-    const { name, icon, attributeIds } = requestBody;
-
-    const existingCategory = await this.getCountCategory(id);
-
-    const updatedCategory = await prisma.category.update({
-      where: {
-        id,
-        // status: true,
-      },
-      data: {
-        name,
-        icon,
-        imageUrl: newImageUrl || existingCategory.imageUrl,
-        attributes: attributeIds
-          ? {
-              set: attributeIds.map((attrId) => ({ id: Number(attrId) })),
+        children: {
+          orderBy: { id: "asc" },
+          include: {
+            children: {
+              orderBy: { id: "asc" },
             }
-          : undefined,
-      },
-      include: {
-        attributes: true,
-      },
-    });
-
-    if (!updatedCategory) {
-      throw new notFoundExeption(`category width id: ${id} not found`);
-    }
-
-    return updatedCategory;
-  }
-
-  public async remove(id: number) {
-    const category = await this.getCountCategory(id);
-
-    //? close relations this category when delete
-    await prisma.category.update({
-      where: { id },
-      data: {
-        attributes: {
-          set: [],
+          },
         },
       },
     });
-
-    await prisma.category.delete({
-      where: {
-        id,
-      },
-    });
   }
 
-  private async getCountCategory(id: number): Promise<Category> {
+  public async getOneCategory(id: string) {
     const category = await prisma.category.findUnique({
       where: { id },
-      include: {
-        attributes: true,
-      },
+      include: { children: true },
     });
 
-    if (!category) {
-      throw new notFoundExeption(`category with id: ${id} not found`);
-    }
+    if (!category) throw new notFoundExeption(`دسته بندی یافت نشد`);
     return category;
   }
 
-  public async getAttributesOfCategory(id: number) {
-    const category = await prisma.category.findUnique({
+  public async updateCategory(
+    id: string,
+    data: ICategoryUpdate,
+    imageUrl?: string
+  ) {
+    const category = await this.findCategoryById(id);
+
+    let slug = category.slug;
+    if (data.name && data.name !== category.name) {
+      const newSlug = this.generateSlug(data.name);
+      await this.checkSlugUnique(newSlug);
+      slug = newSlug;
+    }
+
+    return await prisma.category.update({
       where: { id },
-      include: {
-        //? get all object connect attributes
-        attributes: true,
+      data: {
+        name: data.name,
+        slug,
+        parentId: data.parentId ? data.parentId : category.parentId,
+        imageUrl: imageUrl || category.imageUrl,
+        isActive: data.isActive ?? category.isActive,
       },
     });
+  }
 
-    if (!category) {
-      throw new notFoundExeption(`Category with id: ${id} not found`);
+  public async deleteCategory(id: string) {
+    //? Prevent deleting if it has children
+    await this.findCategoryById(id);
+    const hasChildren = await prisma.category.findFirst({
+      where: { parentId: id },
+    });
+
+    //? check if it has products
+    const hsaProducts = await prisma.product.findFirst({where: {categoryId: id}});
+    if (hsaProducts) {
+      throw new BadRequestException("این دسته بندی دارای محصول می باشد و قابل حذف نیست.");
+    };
+
+    if (hasChildren) {
+      throw new BadRequestException(
+        "Cannot delete category with sub-categories. Delete them first."
+      );
     }
-    return category.attributes;
+
+    await prisma.category.delete({ where: { id } });
   }
 }
 
-export const categoryServer: CategoryServer = new CategoryServer();
+export const categoryService: CategoryService = new CategoryService();

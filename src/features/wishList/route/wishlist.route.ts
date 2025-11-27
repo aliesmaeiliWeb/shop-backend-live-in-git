@@ -1,23 +1,25 @@
-import express, { NextFunction, Request, Response } from "express";
-import { checkpermission, verifyUser } from "../../../globals/middlewares/auth.middleware";
+import express from "express";
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
+import { verifyUser } from "../../../globals/middlewares/auth.middleware";
 import { wishListController } from "../controller/wishlist.controller";
 
 const wishListRouter = express.Router();
 
 wishListRouter.use(verifyUser);
 
-wishListRouter.post(
-  "/",
-  asyncWrapper(wishListController.addWishlist.bind(wishListController))
-);
-wishListRouter.delete(
-  "/:productId",
-  asyncWrapper(wishListController.delete.bind(wishListController))
-);
 wishListRouter.get(
   "/",
-  asyncWrapper(wishListController.read.bind(wishListController))
+  asyncWrapper(wishListController.getMyWishlist.bind(wishListController))
+);
+
+wishListRouter.post(
+  "/:productId",
+  asyncWrapper(wishListController.toggle.bind(wishListController))
+);
+
+wishListRouter.get(
+  "/:productId/check",
+  asyncWrapper(wishListController.checkStatus.bind(wishListController))
 );
 
 export default wishListRouter;

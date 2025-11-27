@@ -1,4 +1,4 @@
-import { ICouponBody } from "../../features/coupon/interface/coupon.interface";
+import { ICreateCoupon, IUpdateCoupon } from "../../features/coupon/interface/coupon.interface";
 import {
   BadRequestException,
   notFoundExeption,
@@ -6,77 +6,97 @@ import {
 import { prisma } from "../../prisma";
 
 class CouponService {
-  //+ create new coupon
-  public async createCoupon(requestBody: ICouponBody) {
-    const { code, discountType, value, expiresAt, usageLimit } = requestBody;
+  //?Validates a coupon and returns the calculated discount amount.
 
-    //+ prevent duplicate code registration
-    const existingCoupon = await prisma.coupon.findUnique({
-      where: { code },
-    });
+  public async validateCoupon(
+    code: string,
+    cartTotal: number
+  ): Promise<number> {
+    const coupon = await prisma.coupon.findUnique({ where: { code } });
 
-    if (existingCoupon) {
-      throw new BadRequestException("این کد تخفیف قبلاً ثبت شده است.");
+    // ? Existence Check
+    if (!coupon) throw new BadRequestException("Invalid coupon code");
+
+    // ? Active Check
+    if (!coupon.isActive) throw new BadRequestException("Coupon is inactive");
+
+    // ? Expiration Check
+    if (new Date() > coupon.expiresAt)
+      throw new BadRequestException("Coupon has expired");
+
+    // ? Usage Limit Check
+    if (coupon.usedCount >= coupon.usageLimit) {
+      throw new BadRequestException("Coupon usage limit reached");
     }
 
-    if (discountType === "PERCENTAGE" && (value <= 0 || value > 100)) {
-      throw new BadRequestException(
-        "مقدار تخفیف درصدی باید بین ۱ تا ۱۰۰ باشد."
-      );
+    // ? Calculate Discount (Percentage)
+    // ?Assuming 'percent' is stored as an integer (e.g., 10 for 10%)
+    let discountAmount = (cartTotal * coupon.percent) / 100;
+
+    // ? Apply Max Discount Cap (if exists)
+    if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
+      discountAmount = coupon.maxDiscount;
     }
 
-    return prisma.coupon.create({
-      data: {
-        code,
-        discountType,
-        value,
-        expiresAt: expiresAt,
-        usageLimit,
-      },
-    });
+    return discountAmount;
   }
 
-  //+ returns all existing coupons
-  public async getAllCoupon() {
-    return prisma.coupon.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-  }
+  ////////////////////////////////////////////////////////////////////
 
-  //+ returns the details ofa specific coupon using its id
-  public async getCouponById(couponId: number) {
-    const coupon = await prisma.coupon.findUnique({
-      where: { id: couponId },
-    });
-
-    if (!coupon) {
-      throw new notFoundExeption("کوپن مورد نظر یافت نشد.");
-    }
+  //+ admin crud operation
+  //! private helper section
+  private async findCoupon(id: string) {
+    const coupon = await prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) throw new notFoundExeption("کپن موجود نیست");
     return coupon;
   }
 
-  //+ update coupon
-  public async updateCoupon(
-    couponId: number,
-    requestBody: Partial<ICouponBody>
-  ) {
-    await this.getCouponById(couponId);
+  //! create
+  public async create(data: ICreateCoupon) {
+    const existing = await prisma.coupon.findUnique({
+      where: { code: data.code },
+    });
+    if (existing) throw new BadRequestException("کد کپن موجود است");
 
-    return prisma.coupon.update({
-      where: { id: couponId },
+    return await prisma.coupon.create({
       data: {
-        ...requestBody,
-        expiresAt: requestBody.expiresAt
-          ? new Date(requestBody.expiresAt)
-          : undefined,
+        code: data.code,
+        percent: data.percent,
+        maxDiscount: data.maxDiscount,
+        usageLimit: data.usageLimit,
+        expiresAt: new Date(data.expiresAt),
+        isActive: true,
       },
     });
   }
 
-  //+ remove coupon
-  public async deleteCoupon(couponId: number) {
-    await this.getCouponById(couponId);
-    await prisma.coupon.delete({ where: { id: couponId } });
+  //! get all
+  public async getAll() {
+    return await prisma.coupon.findMany({ orderBy: { createdAt: "desc" } });
+  }
+
+  //! get one
+  public async getOne(id: string) {
+    return await this.findCoupon(id);
+  }
+
+  //! update 
+  public async update(id: string, data: IUpdateCoupon) {
+    await this.findCoupon(id);
+
+    return await prisma.coupon.update({
+      where: {id},
+      data: {
+        ...data,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
+      }
+    });
+  }
+
+  //! delete
+  public async delete(id: string) {
+    await this.findCoupon(id);
+    await prisma.coupon.delete({where: {id}});
   }
 }
 

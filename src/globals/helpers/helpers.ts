@@ -1,8 +1,7 @@
-import { Product } from "../../generated/prisma";
 import { forbiddenExeption } from "../middlewares/error.middleware";
 
 export class Helper {
-  public static checkPermission<EntityType extends {[key: string]: any}>(
+  public static checkPermission<EntityType extends { [key: string]: any }>(
     entity: any,
     entityProduct: string,
     currentUser: UserPayload
@@ -13,5 +12,5 @@ export class Helper {
     if (currentUser.id === entity![entityProduct]) return;
 
     throw new forbiddenExeption("you cannot perform this action");
-  }
+  };
 }

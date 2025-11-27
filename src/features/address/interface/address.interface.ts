@@ -1,6 +1,7 @@
 export interface IAddressBody {
-  street: string;
+  title?: string;
   province: string;
-  country: string;
-  postalCode: number;
+  city: string;
+  street: string;
+  postalCode: string;
 }

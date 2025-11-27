@@ -1,64 +1,53 @@
 import express from "express";
-import { userController } from "../controller/user.controller";
-import { validateShema } from "../../../globals/middlewares/validate.middleware";
-import { userSchemaCreate, userSchemaUpdate } from "../schema/user.schema";
-import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import {
   checkpermission,
   preventInActiveUser,
   verifyUser,
 } from "../../../globals/middlewares/auth.middleware";
+import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
+import { userController } from "../controller/user.controller";
+import { validateShema } from "../../../globals/middlewares/validate.middleware";
+import { userCreateSchema, userUpdateSchema } from "../schema/user.schema";
 import { uploadAvatar } from "../../../globals/helpers/multer";
 
 const userRoute = express.Router();
 
-//+ global middleware ===> it affects all routes
 userRoute.use(verifyUser);
 userRoute.use(preventInActiveUser);
 
-userRoute.post("/change-password", userController.changePassword);
-userRoute.post(
-  "/change-avatar",
+//? get my own profile
+userRoute.get("/me", asyncWrapper(userController.getMe.bind(userController)));
+
+//? update my own profile
+userRoute.put(
+  "/me",
   uploadAvatar.single("avatar"),
-  userController.uploadAvatar
+  validateShema(userUpdateSchema),
+  asyncWrapper(userController.updateMe.bind(userController))
 );
+
+//! admin routes (only admin)
+userRoute.use(checkpermission("Admin"));
+
 userRoute.post(
   "/",
-  // verifyUser,
-  checkpermission("Admin"),
-  validateShema(userSchemaCreate),
-  asyncWrapper(userController.createUser.bind(userController))
+  validateShema(userCreateSchema),
+  asyncWrapper(userController.create.bind(userController))
 );
-userRoute.get(
-  "/",
-  checkpermission("Admin"),
-  asyncWrapper(userController.getAll.bind(userController))
-);
-userRoute.get(
-  "/:id",
-  checkpermission("Admin"),
-  asyncWrapper(userController.getOne.bind(userController))
-);
-userRoute.get(
-  "/:id/profile",
-  checkpermission("Admin"),
-  asyncWrapper(userController.getProfile.bind(userController))
-);
+
+userRoute.get("/", asyncWrapper(userController.getAll.bind(userController)));
+
+userRoute.get("/:id", asyncWrapper(userController.getOne.bind(userController)));
+
 userRoute.put(
   "/:id",
-  // verifyUser,
-  validateShema(userSchemaUpdate),
+  uploadAvatar.single("avatar"),
+  validateShema(userUpdateSchema),
   asyncWrapper(userController.update.bind(userController))
 );
-userRoute.get(
-  "/me",
-  // verifyUser,
-  asyncWrapper(userController.getMe.bind(userController))
-);
+
 userRoute.delete(
   "/:id",
-  // verifyUser,
-  // preventInActiveUser, // check banned user
   asyncWrapper(userController.delete.bind(userController))
 );
 

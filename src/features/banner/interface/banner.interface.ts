@@ -1,8 +1,9 @@
-import { BannerPosition } from "../../../generated/prisma";
+export interface ICreateBanner{
+  link?: string;
+  isActive?: boolean;
+}
 
-export interface IBannerBody {
-  position: BannerPosition;
-  title?: string;
+export interface IUpdateBanner {
   link?: string;
   isActive?: boolean;
 }

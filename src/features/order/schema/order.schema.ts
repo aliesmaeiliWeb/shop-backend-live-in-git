@@ -1,13 +1,12 @@
-import Joi, { optional } from "joi";
+import Joi from "joi";
 
 export const createOrderSchema = Joi.object({
-  addressId: Joi.number().required().messages({
-    "number.base": "شناسه آدرس باید یک عدد باشد.",
-    "number.positive": "شناسه آدرس باید یک عدد مثبت باشد.",
-    "any.required": "شناسه آدرس الزامی است.",
+  addressId: Joi.string().uuid().required().messages({
+    "string.guid": "شناسه آدرس نامعتبر است.",
+    "any.required": "انتخاب آدرس الزامی است.",
   }),
-  description: Joi.string().allow("").optional(),
-  couponCode: Joi.string().allow("").optional(),
+  note: Joi.string().max(500).allow("").optional(),
+  couponCode: Joi.string().min(3).allow("").optional(),
 });
 
 export const updateOrderStatusSchema = Joi.object({
@@ -24,7 +23,6 @@ export const updateOrderStatusSchema = Joi.object({
     .required()
     .messages({
       "any.only": "وضعیت ارسال شده معتبر نیست.",
-      "any.required": "وضعیت الزامی است.",
     }),
-  trackingCode: Joi.string().allow("").optional(),
+  trackingCode: Joi.string().allow("").optional(), 
 });

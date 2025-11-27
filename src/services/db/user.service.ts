@@ -1,252 +1,112 @@
-import { Prisma, Role, User } from "../../generated/prisma";
+import { IUserCreateBody, IUserUpdateAdmin, IUserUpdateProfile } from "../../features/user/interface/user.interface";
+import { Prisma } from "../../generated/prisma";
+import { BadRequestException, notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
-import bcrypt from "bcrypt";
-import { authService } from "./auth.service";
-import {
-  BadRequestException,
-  forbiddenExeption,
-  notFoundExeption,
-} from "../../globals/middlewares/error.middleware";
-import {
-  IUserCreateBody,
-  IUserUpdateBody,
-  IUserUpdatePasswordBody,
-} from "../../features/user/interface/user.interface";
 
 class UserService {
-  public async add(requestBody: IUserCreateBody) {
-    const {
-      email,
-      name,
-      lastName,
-      avatar,
-      password,
-      role: roleStr,
-      phoneNumber,
-      isActive
-    } = requestBody;
-
-    if (await authService.isEmailAlreadyExist(email)) {
-      throw new BadRequestException("email must be unique");
-    }
-
-    const hasHedPassword: string = await bcrypt.hash(password, 10);
-
-    const role: Role = Role[roleStr as keyof typeof Role];
-
-    //? insert to DB
-    const newUser: User = await prisma.user.create({
-      data: {
-        email,
-        name,
-        lastName,
-        avatar,
-        password: hasHedPassword,
-        role,
-        phoneNumber,
-        isActive: Boolean(isActive)
-      },
+  //! Admin creates a user manually
+  public async create(data: IUserCreateBody) {
+    //? check if phone exist
+    const existing = await prisma.user.findUnique({
+      where: {phoneNumber: data.phoneNumber},
     });
 
-    return this.returnUser(newUser);
-  }
-
-  public async getAllUsers(options: {
-    search?: string;
-    role?: Role;
-    page?: number;
-    limit?: number;
-  }) {
-    const { search, role, page = 1, limit = 10 } = options;
-    const skip = (page - 1) * limit;
-
-    const whereClause: Prisma.UserWhereInput = {};
-
-    if (role) {
-      if (!Object.values(Role).includes(role)) {
-        throw new BadRequestException("رول ارسال شده معتبر نیست");
-      }
-      whereClause.role = role;
+    if (existing) {
+      throw new BadRequestException("تلفن همراه قبلا در سیستم ثبت شده است");
     }
 
-    if (search) {
-      whereClause.OR = [
-        { name: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
+    return await prisma.user.create({
+      data: {
+        phoneNumber: data.phoneNumber,
+        name: data.name,
+        lastName: data.lastName,
+        email: data.email,
+        role: data.role,
+        isActive: data.isActive,
+      },
+    });
+  }
+
+  //! admin gets all users with pagination and search
+  public async getAll(query: any) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.UserWhereInput = {};
+    if (query.search) {
+      where.OR = [
+        {phoneNumber: {contains: query.search}},
+        {name: {contains: query.search}},
+        {lastName: {contains: query.search}},
+        {email: {contains: query.search}},
       ];
     }
 
-    const [user, totalUser] = await prisma.$transaction([
+    if (query.role) {
+      where.role = query.role
+    }
+
+    const [users,total] = await prisma.$transaction([
       prisma.user.findMany({
-        where: whereClause,
-        orderBy: { createdAt: "desc" },
+        where,
+        skip,
         take: limit,
-        skip: skip,
+        orderBy: {createdAt: "desc"},
+        //? select specific fields for security
+        select: {
+          id: true,
+          phoneNumber: true,
+          name: true,
+          lastName: true,
+          email: true,
+          role: true,
+          isActive: true
+        }
       }),
-      prisma.user.count({ where: whereClause }),
+      prisma.user.count({where}),
     ]);
 
-    const userWithouPassword = user.map((user) => {
-      const { password, ...rest } = user;
-      return rest;
-    });
-
-    return { data: userWithouPassword, total: totalUser };
+    return {data: users, total, page, totalPage: Math.ceil(total / limit)}
   }
 
-  public async getUserById(id: number) {
-    const user = await prisma.user.findUnique({ where: { id } });
-
-    if (!user) {
-      throw new notFoundExeption(`کاربری با آیدی ${id} پیدا نشد`);
-    }
-
-    const {password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  }
-
-  public async edit(
-    id: number,
-    requestBody: IUserUpdateBody,
-    currentUser: UserPayload
-  ) {
-    const { name, lastName, avatar, phoneNumber, isActive } = requestBody;
-
-    if (currentUser.id !== id && currentUser.role !== "Admin") {
-      throw new forbiddenExeption("you cannot perform this actoin");
-    }
-
-    const user: User = await prisma.user.update({
-      where: { id },
-      data: {
-        name,
-        lastName,
-        avatar,
-        phoneNumber: phoneNumber,
-        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-      },
-    });
-
-    return this.returnUser(user);
-  }
-
-  public async getUserProfile(userId: number) {
-    const userProfile = await prisma.user.findUnique({
-      where: {id : userId},
+  //! profile actions
+  //? get user profile 
+  public async getOne(id: string) {
+    const user = await prisma.user.findUnique({
+      where: {id},
       include: {
         addresses: true,
-        order: {
-          orderBy : {createdAt: "desc"},
-          include: {
-            items: true,
-          },
-        },
-        comments: {
-          orderBy: {createdAt: "desc"},
-          include: {
-            product: {select: {name: true}},
-          },
-        },
-        wishlist: {
-          include: {
-            product: {select: {name: true}}
-          },
-        },
+        wishlist: {include: {product: {select: {name: true, slug: true, mainImage: true}}}},
+        cart: {include: {items: true}}
       },
     });
 
-    if (!userProfile) {
-      throw new notFoundExeption(`کاربر با شناسه ${userId} یافت نشد.`);
-    }
+    if (!user) throw new notFoundExeption("یوزری با این مشخصات موجود نیست");
 
-    const {password, ...profileWithoutPassword} = userProfile;
-    return profileWithoutPassword;
+    //? security: Remove otp fields befor returning
+    const {otpCode, otpExpiresAt, ...safeUser} = user;
+    return safeUser;
   }
 
-  public async editPassword(
-    requestBody: IUserUpdatePasswordBody,
-    currentUser: UserPayload
-  ) {
-    const { currentPassword, newPassword, confirmNewPassword } = requestBody;
+  //! update profile logic
+  public async update(id: string, data: IUserUpdateProfile | IUserUpdateAdmin, avatarUrl?: string){
+    // user check
+    const user = await prisma.user.findUnique({where: {id}});
+    if (!user) throw new notFoundExeption("یوزری با این آیدی یافت نشد")
 
-    const userInDB = await this.get(currentUser.id);
-
-    if (!userInDB) {
-      throw new notFoundExeption(`user dose not exist width id: ${userInDB}`);
-    }
-
-    const isMathPassword: boolean = await bcrypt.compare(
-      currentPassword,
-      userInDB.password!
-    );
-
-    if (!isMathPassword) {
-      throw new notFoundExeption("password wrong!");
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      throw new notFoundExeption("password are not same!");
-    }
-
-    const hashedNewPassword: string = await bcrypt.hash(newPassword, 10);
-
-    await prisma.user.update({
-      where: { id: currentUser.id },
+    return await prisma.user.update({
+      where: {id},
       data: {
-        password: hashedNewPassword,
+        ...data,
+        avatar: avatarUrl || user.avatar,
       },
     });
   }
 
-  //+ just inActive user => not remove
-  public async remove(id: number, currentUser: UserPayload) {
-    if (currentUser.id !== id && currentUser.role !== "Admin") {
-      throw new forbiddenExeption("you cannot perform this actoin");
-    }
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
-  }
-
-  public async get(id: number, include?: Record<string, boolean>) {
-    const query: any = { where: { id } };
-
-    if (include && Object.keys(include).length > 0) {
-      query.include = include;
-    }
-
-    const user = await prisma.user.findFirst(query);
-    return user;
-  }
-
-  private returnUser(user: User) {
-    return {
-      email: user.email,
-      name: user.name,
-      lastName: user.lastName,
-      avatar: user.avatar,
-      role: user.role,
-    };
-  }
-
-  public async editAvatar(
-    file: Express.Multer.File | undefined,
-    currentUser: UserPayload
-  ) {
-    if (!file) {
-      throw new BadRequestException("please provide image");
-    }
-
-    console.log(file);
-
-    await prisma.user.update({
-      where: { id: currentUser.id },
-      data: {
-        avatar: file.filename,
-      },
-    });
+  //! remove soft or hard
+  public async delete(id: string) {
+    await prisma.user.delete({where: {id}});
   }
 }
 

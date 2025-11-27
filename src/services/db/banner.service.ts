@@ -1,40 +1,55 @@
 import { Express } from "express";
-import { IBannerBody } from "../../features/banner/interface/banner.interface";
 import { prisma } from "../../prisma";
 import { fileRemoveService } from "./file-remove.service";
 import { notFoundExeption } from "../../globals/middlewares/error.middleware";
+import { ICreateBanner, IUpdateBanner } from "../../features/banner/interface/banner.interface";
+import path from "path";
 
 class BannerService {
-  public async create(requestBody: IBannerBody, file: Express.Multer.File) {
-    const { position, isActive, link, title } = requestBody;
-
-    return prisma.banner.create({
+  //! create
+  public async create(data: ICreateBanner, imageUrl: string) {
+    return await prisma.banner.create({
       data: {
-        position,
-        isActive,
-        link,
-        title,
-        imageUrl: file.filename,
+        imageUrl: imageUrl,
+        link: data.link,
+        isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
       },
     });
   }
 
-  public async getAll() {
-    return prisma.banner.findMany({
-      orderBy: { createdAt: "desc" },
+  //! get all 
+  public async getAllPublic() {
+    return await prisma.banner.findMany({
+      where: {isActive: true},
+      orderBy: {id: "desc"},
     });
   }
 
-  public async delete(BannerId: number) {
-    const banner = await prisma.banner.findUnique({ where: { id: BannerId } });
-
-    if (!banner) {
-      throw new notFoundExeption("بنر مورد نظر یافت نشد.");
-    }
-
-    await fileRemoveService.deleteUpload(banner.imageUrl,'banners');
-    await prisma.banner.delete({ where: { id: BannerId } });
+  //! get all admin-all
+  public async getAllAdmin() {
+    return await prisma.banner.findMany({
+      orderBy: {id: "desc"},
+    });
   }
-}
+
+  //! delete
+  public async delete(id: string) {
+    const banner = await prisma.banner.findUnique({where: {id}});
+    if (!banner) throw new notFoundExeption("بنر یافت نشد");
+
+    const filename = path.basename(banner.imageUrl);
+    await fileRemoveService.deleteUpload(filename, "banners");
+
+    await prisma.banner.delete({where: {id}});
+  }
+
+  //! update
+  public async update(id: string, data: IUpdateBanner) {
+    return await prisma.banner.update({
+      where: {id},
+      data: data
+    });
+  }
+} 
 
 export const bannerService: BannerService = new BannerService();

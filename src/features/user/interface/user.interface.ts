@@ -1,24 +1,22 @@
 import { Role } from "../../../generated/prisma";
 
 export interface IUserCreateBody {
-  email: string;
-  password: string;
-  name: string;
-  lastName: string;
-  avatar: string;
+  phoneNumber: string;
+  name?: string;
+  lastName?: string;
+  email?: string;
   role: Role;
-  phoneNumber?: string;
-  isActive: boolean
+  isActive: boolean;
 }
-export interface IUserUpdateBody {
-  name: string;
-  lastName: string;
-  avatar: string;
-  phoneNumber?: string;
-  isActive: boolean
+export interface IUserUpdateProfile {
+  name?: string;
+  lastName?: string;
+  email?: string;
 }
-export interface IUserUpdatePasswordBody {
-  currentPassword: string;
-  newPassword: string;
-  confirmNewPassword: string;
+export interface IUserUpdateAdmin {
+ name?: string;
+ lastName?: string;
+ email?: string;
+ role?: Role;
+ isActive?: boolean
 }

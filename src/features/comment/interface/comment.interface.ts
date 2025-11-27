@@ -1,11 +1,11 @@
-export interface ICommentData {
+export interface ICreateComment{
   text: string;
   rating: number;
-  authorId: number;
-  productId: number;
+  productId: string;
+  userId: string
 }
 
-export interface IUpdateCommentStatus {
+export interface IUpdateComment {
   text: string;
   rating: number;
 }

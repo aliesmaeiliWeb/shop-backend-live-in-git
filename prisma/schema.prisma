@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -14,258 +8,336 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --------------------------------------
+// 1. USER & AUTHENTICATION (OTP Logic)
+// --------------------------------------
+
 enum Role {
-  User
-  Admin
-  Shop
+  USER
+  ADMIN
+  SHOP_MANAGER
 }
 
 model User {
-  id          Int        @id @default(autoincrement())
-  name        String
-  email       String     @unique
-  lastName    String
-  password    String?
-  avatar      String
-  role        Role       @default(Admin)
-  phoneNumber String?
-  // for relation
-  products    Product[]
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  comments    Comment[]
-  order       Order[]
-  wishlist    WishList[]
-  addresses   Address[]
-  cart        Cart?
-}
+  id                                                           String      @id @default(uuid())
 
-model Attribute {
-  id         Int        @id @default(autoincrement())
-  name       String     @unique
-  label      String
-  type       String
-  options    String?    @db.Text
-  // categry many to many
-  categories Category[]
-}
+  // Identity (Mobile is King)
+  phoneNumber                                                  String      @unique
+  email                                                        String?     @unique // Optional now
+  password     String?   // Optional (only for admins usually)
 
-model Category {
-  id         Int         @id @default(autoincrement())
-  name       String
-  icon       String
-  status     Boolean     @default(true)
-  products   Product[]
-  imageUrl   String?
-  // category many to many
-  attributes Attribute[]
-}
+  // Profile (Filled after login)
+  name                                                         String?
+  lastName                                                     String?
+  avatar                                                       String?
 
-model Product {
-  id                 Int       @id @default(autoincrement())
-  name               String
-  longDescription    String    @db.Text
-  shortDescription   String
-  price              Float     @default(0)
-  main_Image         String
-  category           Category  @relation(fields: [categoryId], references: [id])
-  categoryId         Int
-  shop               User?     @relation(fields: [shopId], references: [id])
-  shopId             Int?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime? @default(now()) @updatedAt
-  discountPercentage Int?
+  // Security (OTP)
+  otpCode      String?   // Hashed code
+  otpExpiresAt                                                 DateTime?
+  isActive                                                     Boolean     @default(true)
+  role                                                         Role        @default(USER)
 
-  comments Comment[]
+  //                                                           Dates
+  createdAt                                                    DateTime    @default(now())
+  updatedAt                                                    DateTime    @updatedAt
 
-  wishlist WishList[]
+  //                                                           Relations
+  addresses                                                    Address[]
+  orders                                                       Order[]
+  cart                                                         Cart?
+  wishlist                                                     WishList[]
+  comments                                                     Comment[]
 
-  cartItem CartItem[]
-
-  dynamicAttributes String? @db.Text
-
-  skus ProductSKU[]
-}
-
-model ProductSKU {
-  id         Int          @id @default(autoincrement())
-  sku        String       @unique // unik code for product
-  price      Float
-  quantity   Int
-  product    Product      @relation(fields: [productId], references: [id])
-  productId  Int
-  cartItem   CartItem[]
-  orderItems orderItems[]
-}
-
-enum CommentStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-model Comment {
-  id        Int     @id @default(autoincrement())
-  text      String
-  rating    Int
-  authorId  Int
-  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  productId Int
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  // وضعیت کامنت (برای تایید ادمین)
-  status CommentStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-//+ order section
-enum OrderStatus {
-  PENDING
-  PAID
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  PROCESSING
-  REFUNDED
-}
-
-model Order {
-  id              Int         @id @default(autoincrement())
-  totalPrice      Float
-  shippingCost    Float       @default(0)
-  taxAmount       Float       @default(0)
-  subtotal        Float
-  discountAmount  Float       @default(0)
-  status          OrderStatus @default(PENDING)
-  shippingAddress String      @db.Text
-  customerName    String
-  customerPhone   String
-  customerEmail   String
-  description     String?     @db.Text
-  trackingCode    String?
-
-  authorId Int
-  autor    User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  items    orderItems[]
-  payments Payment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model orderItems {
-  id              Int     @id @default(autoincrement())
-  quantity        Int
-  productTitle    String?
-  sku             String
-  priceAtPurchase Float
-
-  orderId Int
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  productSKUId Int
-  productSKU   ProductSKU @relation(fields: [productSKUId], references: [id], onDelete: Restrict)
-}
-
-enum PaymentStatus {
-  PENDING
-  SUCCESSFUL
-  FAILED
-}
-
-model Payment {
-  id            Int           @id @default(autoincrement())
-  amount        Float
-  status        PaymentStatus @default(PENDING)
-  gateway       String // نام درگاه پرداخت (مثلا Zarinpal)
-  transactionId String?       @unique // کد تراکنش از سمت درگاه
-
-  orderId Int
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-//+ product variant
-
-model WishList {
-  userId    Int
-  productId Int
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@id([userId, productId]) // for no repead 
+  // If this user owns a shop (Future feature)
+  products     Product[] // Created by this user
 }
 
 model Address {
-  id         Int     @id @default(autoincrement())
-  street     String
-  province   String?
-  country    String
-  postalCode Int
+  id                                          String    @id @default(uuid())
+  title      String? // e.g. "Home", "Office"
+  street                                      String
+  province                                    String
+  city                                        String
+  postalCode                                  String
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
+  userId                                      String
+  user                                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                                   DateTime  @default(now())
 }
 
+// --------------------------------------
+// 2. PRODUCT & CATALOG (Commercial Grade)
+// --------------------------------------
+
+model Category {
+  id       String      @id @default(uuid())
+  name     String
+  slug     String      @unique // SEO: /category/mobile-phones
+  icon     String?
+  imageUrl String?
+  isActive Boolean     @default(true)
+
+  // Sub-categories (Self Relation)
+  parentId String?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+
+  products Product[]
+}
+
+model Product {
+  id                                                                       String                 @id @default(uuid())
+  name                                                                     String
+  slug                                                                     String                 @unique // SEO: /product/nike-shoes-red
+
+  shortDescription                                                         String?
+  longDescription                                                          String?                @db.Text
+  mainImage                                                                String
+
+  gallery                                                                  ProductGallery[]
+
+  // Base info (Logic is in SKUs, but we keep base price for display)
+  basePrice                                                                Float                  @default(0)
+  discountPercent                                                          Int?                   @default(0)
+
+  isActive                                                                 Boolean                @default(true)
+
+  deleteAt         DateTime? // If this has a date, the product is deleted
+
+  categoryId                                                               String
+  category                                                                 Category              @relation(fields: [categoryId], references: [id])
+
+  //                                                                       Relations
+  ownerId          String?      // The admin/shop who created it
+  owner                                                                    User?                 @relation(fields: [ownerId], references: [id])
+
+  skus             ProductSKU[] // The variants (Size/Color)
+  comments                                                                 Comment[]
+  wishlist                                                                 WishList[]
+  attributes       ProductAttribute[] // Links attributes to this product
+
+  priceHistory                                                             ProductPriceHistory[]
+
+  createdAt                                                                DateTime               @default(now())
+  updatedAt                                                                DateTime               @updatedAt
+}
+
+model ProductGallery {
+  id        String    @id @default(uuid())
+  imageUrl  String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+}
+
+// The actual sellable item (Example: T-Shirt Red XL)
+model ProductSKU {
+  id             String       @id @default(uuid())
+  sku            String       @unique // The barcode/code
+  price          Float
+  quantity       Int          @default(0) // Stock
+
+  productId      String
+  product        Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  //             Relations
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+
+  deletedAt      DateTime?
+
+  // Which attributes define this SKU? (JSON is easier for simple shops)
+  // Example: { "color": "Red", "size": "XL" }
+  attributesJson Json?
+}
+
+model ProductPriceHistory {
+  id                                          String    @id @default(uuid())
+  productId                                   String
+  product                                     Product  @relation(fields: [productId],references: [id], onDelete: Cascade)
+  oldPrice                                    Float
+  newPrice                                    Float
+  changedBy String // admin id who changed it
+
+  createdAt                                   DateTime  @default(now())
+}
+
+// Defining available attributes (Color, Size, Material)
+model Attribute {
+  id     String            @id @default(uuid())
+  name   String            @unique // "Color"
+
+  //     Relations
+  values AttributeValue[]
+}
+
+model AttributeValue {
+  id                                          String              @id @default(uuid())
+  value       String    // "Red"
+  colorCode   String?   // "#FF0000" (for UI)
+
+  attributeId                                 String
+  attribute                                   Attribute          @relation(fields: [attributeId], references: [id])
+
+  productAttributes                           ProductAttribute[]
+}
+
+// Linking Products to Attributes (Many-to-Many)
+model ProductAttribute {
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+
+  attributeValueId String
+  attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id])
+
+  @@id([productId, attributeValueId])
+}
+
+// --------------------------------------
+// 3. CART & ORDERS
+// --------------------------------------
+
 model Cart {
-  id         Int        @id @default(autoincrement())
-  userId     Int        @unique
-  totalPrice Float
-  cartItem   CartItem[]
-  user       User       @relation(fields: [userId], references: [id])
+  id         String      @id @default(uuid())
+  userId     String      @unique
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  totalPrice Float       @default(0)
+
+  items      CartItem[]
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model CartItem {
-  id           Int        @id @default(autoincrement())
-  cartId       Int
-  price        Float
-  quantity     Int        @default(1)
-  productSKUId Int
+  id           String      @id @default(uuid())
+  cartId       String
   cart         Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productSKUId String
   productSKU   ProductSKU @relation(fields: [productSKUId], references: [id])
-  Product      Product?   @relation(fields: [productId], references: [id])
-  productId    Int?
+
+  quantity     Int         @default(1)
 
   @@unique([cartId, productSKUId])
 }
 
-enum DiscountType {
-  PERCENTAGE
-  FIXED_AMOUNT
+enum OrderStatus {
+  PENDING    
+  PAID       
+  PROCESSING 
+  SHIPPED    
+  DELIVERED 
+  CANCELLED 
+}
+
+model Order {
+  id                                                         String       @id @default(uuid())
+  orderNumber                                                String       @unique // A readable ID like "ORD-2025-1001"
+
+  userId                                                     String
+  user                                                       User        @relation(fields: [userId], references: [id])
+
+  addressJson                                                String       @db.Text
+  note                                                       String?      @db.Text
+
+  totalPrice                                                 Float
+  discountAmount                                             Float        @default(0)
+  shippingCost                                               Float        @default(0)
+  finalPrice      Float       // Total - Discount + Shipping
+
+  status                                                     OrderStatus  @default(PENDING)
+
+  couponCode                                                 String?
+
+  // Address Snapshot (We save the address as text, in case User changes it later)
+  receiverName                                               String
+  receiverPhone                                              String
+
+  items                                                      OrderItem[]
+  payment                                                    Payment?
+
+  createdAt                                                  DateTime     @default(now())
+  updatedAt                                                  DateTime     @updatedAt
+}
+
+model OrderItem {
+  id           String       @id @default(uuid())
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productSKUId String?
+  productSKU   ProductSKU? @relation(fields: [productSKUId], references: [id], onDelete: SetNull)
+
+  // Snapshot data (Save price at time of purchase!)
+  productName  String
+  skuCode      String
+  quantity     Int
+  image        String?
+  price        Float
 }
 
 model Coupon {
-  id           Int          @id @default(autoincrement())
-  code         String       @unique
-  discountType DiscountType
-  value        Float
-  expiresAt    DateTime?
-  isActive     Boolean      @default(true)
-  usageLimit   Int          @default(1)
-  timesUsed    Int          @default(0)
-  createdAt    DateTime     @default(now())
-  updateAt     DateTime     @updatedAt
+  id          String    @id @default(uuid())
+  code        String    @unique
+  percent     Int
+  maxDiscount Float?
+  usageLimit  Int       @default(100)
+  usedCount   Int       @default(0)
+  expiresAt   DateTime
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
 }
 
-enum BannerPosition {
-  HEADER
-  BODY
+// --------------------------------------
+// 4. EXTRAS (Comments, Wishlist, etc.)
+// --------------------------------------
+
+model Comment {
+  id         String    @id @default(uuid())
+  text       String
+  rating     Int       @default(5)
+  isApproved Boolean   @default(false)
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+}
+
+model WishList {
+  userId    String
+  productId String
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+}
+
+model Payment {
+  id                                                String    @id @default(uuid())
+  amount                                            Float
+  gateway                                           String
+  method        String?   // "ZarinPal", "Cash"
+  resNumber     String?  // Reference ID from bank
+  refId         String?  // Tracking code from bank
+  status                                            Boolean   @default(false) // Success or Fail
+
+  orderId                                           String    @unique
+  order                                             Order    @relation(fields: [orderId], references: [id])
+
+  createdAt                                         DateTime  @default(now())
 }
 
 model Banner {
-  id        Int            @id @default(autoincrement())
-  imageUrl  String
-  position  BannerPosition
-  title     String?        // alt image
-  link      String?        // is open link when click
-  isActive  Boolean        @default(true)
-
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id       String   @id @default(uuid())
+  imageUrl String
+  link     String?
+  isActive Boolean  @default(true)
 }

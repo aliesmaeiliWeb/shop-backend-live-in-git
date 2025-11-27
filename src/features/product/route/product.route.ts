@@ -1,71 +1,70 @@
-import express, { NextFunction, Request, Response } from "express";
-import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
+import express from "express";
 import { productController } from "../controller/product.controller";
+import { productUpload } from "../../../globals/helpers/multer";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
-import { productSchema, updateProductSchema } from "../schema/product.schema";
+import { productCreateSchema, productUpdateSchema } from "../schema/product.schema";
+import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import {
   checkpermission,
   preventInActiveUser,
   verifyUser,
 } from "../../../globals/middlewares/auth.middleware";
-import { upload } from "../../../globals/helpers/multer";
-import parseDynamicAttribute from "../../../globals/middlewares/productChange.middleware";
-import { commentRoute } from "../../comment/route/comment.route";
 
 const productRoute = express.Router();
-productRoute.get("/", asyncWrapper(productController.getAll));
-productRoute.get(
-  "/:id",
-  asyncWrapper(productController.readOne.bind(productController))
-);
 
-//+ after login
+productRoute.get("/", asyncWrapper(productController.getAll.bind(productController)));
+productRoute.get("/:id", asyncWrapper(productController.getOne.bind(productController)));
+
 productRoute.use(verifyUser);
-productRoute.get(
-  "/my",
-  verifyUser,
-  asyncWrapper(productController.readMyProducts.bind(productController))
-);
-
-productRoute.use("/:productId/comments", commentRoute);
-
-productRoute.use(checkpermission("Shop", "Admin"));
 productRoute.use(preventInActiveUser);
+productRoute.use(checkpermission("ADMIN")); 
 
 productRoute.post(
   "/",
-  upload.array("main_Image", 15),
-  parseDynamicAttribute,
-  validateShema(productSchema),
-  asyncWrapper(productController.createBaseProduct.bind(productController))
+  productUpload.fields([
+    { name: "mainImage", maxCount: 1 },
+    { name: "galleryImages", maxCount: 5 },
+  ]),
+  (req, res, next) => {
+    if (req.body.skus && typeof req.body.skus === "string") {
+      try { req.body.skus = JSON.parse(req.body.skus); } catch (e) {}
+    }
+    if (req.body.attributeValueIds && typeof req.body.attributeValueIds === "string") {
+      try { req.body.attributeValueIds = JSON.parse(req.body.attributeValueIds); } catch (e) {}
+    }
+    next();
+  },
+  validateShema(productCreateSchema),
+  asyncWrapper(productController.create.bind(productController))
 );
-productRoute.patch(
+
+
+productRoute.put(
   "/:id",
-  upload.array("main_Image", 15),
-  validateShema(updateProductSchema),
-  parseDynamicAttribute,
+  productUpload.fields([{ name: "mainImage", maxCount: 1 }]),
+  validateShema(productUpdateSchema),
   asyncWrapper(productController.update.bind(productController))
 );
+
 productRoute.delete(
   "/:id",
   asyncWrapper(productController.delete.bind(productController))
 );
-productRoute.delete(
-  "/:productId/images",
-  asyncWrapper(productController.deleteImage.bind(productController))
+
+productRoute.post(
+  "/:id/gallery",
+  productUpload.array("galleryImages", 5),
+  asyncWrapper(productController.addGalleryImages.bind(productController))
 );
 
-//+ SKU route
+productRoute.delete(
+  "/gallery/:galleryId",
+  asyncWrapper(productController.deleteGalleryImage.bind(productController))
+);
+
 productRoute.post(
   "/:id/sku",
   asyncWrapper(productController.addSku.bind(productController))
 );
-productRoute.patch(
-  "/skus/:skuId",
-  asyncWrapper(productController.editSku.bind(productController))
-);
-productRoute.delete(
-  "/skus/:skuId",
-  asyncWrapper(productController.removeSku.bind(productController))
-);
+
 export default productRoute;

@@ -1,6 +1,12 @@
-export interface ICategoryBody {
+export interface ICategoryCreate {
   name: string;
-  icon: string;
-  attributeIds?: number[] // new array in attribute array
+  parentId?: string; 
+  icon?: string;
 }
 
+export interface ICategoryUpdate {
+  name?: string;
+  icon?: string;
+  parentId?: string;
+  isActive?: boolean;
+}

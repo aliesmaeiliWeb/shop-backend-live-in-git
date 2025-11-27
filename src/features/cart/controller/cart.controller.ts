@@ -3,54 +3,59 @@ import { cartService } from "../../../services/db/cart.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
 
 class CartController {
-  public async addToCart(req: Request, res: Response) {
-    const cart = await cartService.add(req.body, req.currentUser);
+  //? get user's cart
+  public async getMyCart(req:Request, res:Response) {
+    const cart = await cartService.getCart(req.currentUser.id.toString());
+    res.status(HTTP_STATUS.ok).json({data: cart});
+  }
 
-    return res.status(HTTP_STATUS.create).json({
-      message: "product added to cart successfully",
+  //? add user's cart
+  public async addToCart(req:Request, res:Response){
+    const {skuId, quantity} = req.body;
+    const cart = await cartService.addToCart(req.currentUser.id.toString(), skuId, quantity);
+
+    res.status(HTTP_STATUS.create).json({
+      message: "آیتم به سبد خرد اضافه شد",
       data: cart,
     });
   }
 
-  public async getMyCart(req: Request, res: Response) {
-    const cart = await cartService.get(req.currentUser);
+  //? updateitme quantity
+  public async updateItemQuantity(req:Request, res:Response) {
+    const {quantity} = req.body;
+    const {itemId} = req.params;
 
-    return res.status(HTTP_STATUS.ok).json({
-      message: "get my cart successfully",
-      data: cart,
-    });
-  }
-
-  public async updateCartItem(req: Request, res: Response) {
-    const cartItemId = parseInt(req.params.id);
-    const newQuantity = req.body;
-
-    const cartItem = await cartService.updateItemQuantity(
-      cartItemId,
-      newQuantity,
-      req.currentUser
+    const cart = await cartService.updateItemQuantity(
+      req.currentUser.id.toString(),
+      itemId,
+      quantity
     );
 
-    return res.status(HTTP_STATUS.ok).json({
-      message: "cart item updated successfully",
-      data: cartItem,
+    res.status(HTTP_STATUS.ok).json({
+      message: "کارت با موفقیت آپدیت شد",
+      data: cart
     });
   }
 
-  public async removeCartItem(req: Request, res: Response) {
-    const cartItemId = parseInt(req.params.id);
-    await cartService.removeItem(cartItemId, req.currentUser);
+  //? remove item from cart
+  public async removeItem(req:Request, res:Response) {
+    const {itemId} = req.params;
+    const cart = await cartService.removeItem(req.params.id.toString(), itemId);
 
-    return res.status(HTTP_STATUS.ok).json({
-      message: "cart item removed successfully",
+    res.status(HTTP_STATUS.ok).json({
+      message: "آیتم با موفقیت حذف شد",
+      data: cart
     });
   }
 
-  public async clearCart(req: Request, res: Response) {
-    await cartService.clear(req.currentUser);
-
-    return res.status(HTTP_STATUS.ok).json({
-      message: "cart cleared successfully",
+  //? sync guest cart
+  public async syncCart(req:Request, res:Response) {
+    const {item} = req.body;
+    const cart = await cartService.syncGuestCart(req.currentUser.id.toString(), item);
+    
+    res.status(HTTP_STATUS.ok).json({
+      message: "همگام سازی با موفقیت انجام شد",
+      data: cart
     });
   }
 }

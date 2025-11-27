@@ -6,29 +6,39 @@ import { BadRequestException } from "../../../globals/middlewares/error.middlewa
 class BannerController {
   public async create(req: Request, res: Response) {
     if (!req.file) {
-      throw new BadRequestException("لطفاً یک تصویر برای بنر آپلود کنید.");
+      throw new BadRequestException("Image file is required");
     }
-    const banner = await bannerService.create(req.body, req.file);
-    return res.status(HTTP_STATUS.create).json({
-      message: "بنر با موفقیت ایجاد شد.",
+
+    const imageUrl = `/image/banners/${req.file.filename}`;
+
+    const banner = await bannerService.create(req.body, imageUrl);
+
+    res.status(HTTP_STATUS.create).json({
+      message: "Banner created successfully",
       data: banner,
     });
   }
 
-  public async getAll(req: Request, res: Response) {
-    const banners = await bannerService.getAll();
-    return res.status(HTTP_STATUS.ok).json({
-      message: "بنرها با موفقیت دریافت شدند.",
-      data: banners,
-    });
+  public async getAllPublic(req: Request, res: Response) {
+    const banners = await bannerService.getAllPublic();
+    res.status(HTTP_STATUS.ok).json({ data: banners });
+  }
+
+  public async getAllAdmin(req: Request, res: Response) {
+    const banners = await bannerService.getAllAdmin();
+    res.status(HTTP_STATUS.ok).json({ data: banners });
   }
 
   public async delete(req: Request, res: Response) {
-    const bannerId = parseInt(req.params.id);
-    await bannerService.delete(bannerId);
-    return res.status(HTTP_STATUS.ok).json({
-      message: "بنر با موفقیت حذف شد.",
-    });
+    await bannerService.delete(req.params.id);
+    res.status(HTTP_STATUS.ok).json({ message: "Banner deleted successfully" });
+  }
+
+  public async update(req: Request, res: Response) {
+    const banner = await bannerService.update(req.params.id, req.body);
+    res
+      .status(HTTP_STATUS.ok)
+      .json({ message: "Banner updated", data: banner });
   }
 }
 

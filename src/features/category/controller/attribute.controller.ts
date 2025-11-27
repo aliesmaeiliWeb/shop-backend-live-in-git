@@ -1,28 +1,25 @@
 import { Request, Response } from "express";
-import { attributeServer } from "../../../services/db/attribute.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
+import { attributeServer } from "../../../services/db/attribute.service";
 
 class AttributeController {
-  public async create(req: Request, res: Response) {
-    const attribute = await attributeServer.add(req.body);
-
-    res.status(HTTP_STATUS.create).json({
-      message: "attribute created",
-      data: {
-        attribute,
-      },
-    });
+  public async createAttribute(req: Request, res: Response) {
+    const attr = await attributeServer.createAttribute(req.body);
+    res.status(HTTP_STATUS.create).json({ message: "Attribute Created", data: attr });
   }
 
-  public async getAll(req: Request, res: Response) {
-    const attribute = await attributeServer.read();
+  public async addAttributeValue(req: Request, res: Response) {
+    const id = req.params.id;
+    const val = await attributeServer.addValueToAttribute(
+      id,
+      req.body
+    );
+    res.status(HTTP_STATUS.create).json({ message: "Value Added", data: val });
+  }
 
-    res.status(HTTP_STATUS.ok).json({
-      message: "get all attribute",
-      data: {
-        attribute,
-      },
-    });
+  public async getAllAttributes(req: Request, res: Response) {
+    const attrs = await attributeServer.getAllAttributes();
+    res.status(HTTP_STATUS.ok).json({ data: attrs });
   }
 }
 

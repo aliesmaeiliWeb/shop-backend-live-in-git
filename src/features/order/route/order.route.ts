@@ -1,77 +1,73 @@
 import express from "express";
-import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { orderController } from "../controller/order.controller";
-import { checkpermission, verifyUser } from "../../../globals/middlewares/auth.middleware";
+import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { validateShema } from "../../../globals/middlewares/validate.middleware";
 import { createOrderSchema, updateOrderStatusSchema } from "../schema/order.schema";
+import { checkpermission, verifyUser } from "../../../globals/middlewares/auth.middleware";
 
 const orderRouter = express.Router();
 
-//+ callback address for payment zarinpal => global
+// 1. Public Callback (ZarinPal calls this)
 orderRouter.get(
-  "/payment/callback",
+  "/payment/callback", 
   asyncWrapper(orderController.verifyPaymentCallBack.bind(orderController))
 );
 
+// --- Authentication Required ---
 orderRouter.use(verifyUser);
 
-//+ create new orders for pendign status
+// 2. Specific User Routes (MUST be before /:id)
+orderRouter.get(
+    "/my-orders", 
+    asyncWrapper(orderController.getMyOrder.bind(orderController))
+);
+
+// 3. Create & Pay
 orderRouter.post(
   "/",
   validateShema(createOrderSchema),
   asyncWrapper(orderController.create.bind(orderController))
 );
 
-//+ cancell pendign for user
-orderRouter.patch(
-  "/:id/cancel",
-  asyncWrapper(orderController.cancel.bind(orderController))
-);
-
-//+ start payment  and get payed link
 orderRouter.post(
-  "/:orderId/pay",
-  asyncWrapper(orderController.initiatePayment.bind(orderController))
+    "/:orderId/pay", 
+    asyncWrapper(orderController.initiatePayment.bind(orderController))
 );
 
-//+ using middleware fo admin access
+orderRouter.patch(
+    "/:id/cancel", 
+    asyncWrapper(orderController.cancel.bind(orderController))
+);
+
+// --- Admin Routes (Admin & Shop) ---
 orderRouter.use(checkpermission("Admin", "Shop"));
 
-//+ get history orders user
+// 4. Specific Admin Routes
 orderRouter.get(
-  '/my-orders',
-  asyncWrapper(orderController.getMyOrder.bind(orderController))
+    "/all", 
+    asyncWrapper(orderController.getAll.bind(orderController))
 );
 
-//+ get all order
 orderRouter.get(
-  '/all',
-  asyncWrapper(orderController.getAll.bind(orderController))
+    "/user/:userId", 
+    asyncWrapper(orderController.getForUser.bind(orderController))
 );
 
-//+ get order by id
+// 5. Dynamic Admin Routes (/:id)
 orderRouter.get(
-  '/:id',
-  asyncWrapper(orderController.getOne.bind(orderController))
+    "/:id", 
+    asyncWrapper(orderController.getOne.bind(orderController))
 );
 
-//+ get all order for user
-orderRouter.get(
-  '/user/:userId',
-  asyncWrapper(orderController.getForUser.bind(orderController))
-);
-
-//+ change status order by admin
 orderRouter.patch(
-  '/:id/status',
-  validateShema(updateOrderStatusSchema),
-  asyncWrapper(orderController.updateStatus.bind(orderController))
+    "/:id/status",
+    validateShema(updateOrderStatusSchema),
+    asyncWrapper(orderController.updateStatus.bind(orderController))
 );
 
-//+ cancel order by admin
 orderRouter.patch(
-  '/:id/cancel-admin',
-  asyncWrapper(orderController.cancelByAdmin.bind(orderController))
-)
+    "/:id/cancel-admin", 
+    asyncWrapper(orderController.cancelByAdmin.bind(orderController))
+);
 
 export default orderRouter;

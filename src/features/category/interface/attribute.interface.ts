@@ -1,6 +1,8 @@
-export interface IAttributeBody {
-  name: string;
-  label: string;
-  type: "text" | "number" | "select" | "color";
-  options?: string[];
+export interface IAttributeCreate {
+  name: string; 
+}
+
+export interface IAttributeValueCreate {
+  value: string;    
+  colorCode?: string;
 }

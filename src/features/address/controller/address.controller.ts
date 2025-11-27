@@ -4,45 +4,42 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 
 class AddressController {
   public async addAddress(req: Request, res: Response) {
-    const address = await addressService.add(req.body, req.currentUser);
+    const address = await addressService.add(req.body, req.currentUser.id.toString());
 
     return res.status(HTTP_STATUS.create).json({
-      message: "add address successfully",
+      message: "آدرس باموقیت اضافه شد",
       data: address,
+    });
+  }
+
+  public async getMyAddresses(req: Request, res: Response) {
+    const addresses = await addressService.getAll(req.currentUser.id.toString());
+    
+    res.status(HTTP_STATUS.ok).json({
+      data: addresses,
     });
   }
 
   public async updateAddress(req: Request, res: Response) {
     const updateAddress = await addressService.update(
-      parseInt(req.params.id),
+      req.params.id,
       req.body,
-      req.currentUser
+      req.currentUser.id.toString(),
     );
 
     return res.status(HTTP_STATUS.ok).json({
-      message: "update address successfully",
+      message: "آدرس با موفقیت آپدیت شد",
       data: {
         updateAddress,
       },
     });
   }
 
-  public async delete(req: Request, res: Response) {
-    await addressService.remove(parseInt(req.params.id), req.currentUser);
+  public async deleteAddress(req: Request, res: Response) {
+    await addressService.remove(req.params.id, req.currentUser.id.toString());
 
     return res.status(HTTP_STATUS.ok).json({
-      message: "delete address successfully",
-    });
-  }
-
-  public async getMyAddress(req: Request, res: Response) {
-    const address = await addressService.get(req.currentUser);
-
-    res.status(HTTP_STATUS.ok).json({
-      message: "addresses feched successfully",
-      data: {
-        address,
-      },
+      message: "آدرس با موفقیت حذف شد",
     });
   }
 }

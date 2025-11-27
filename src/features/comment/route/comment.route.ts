@@ -1,26 +1,20 @@
-import express, { NextFunction, Request, Response } from "express";
-import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
-import {
-  checkpermission,
-  verifyUser,
-} from "../../../globals/middlewares/auth.middleware";
-import { upload } from "../../../globals/helpers/multer";
-import parseDynamicAttribute from "../../../globals/middlewares/productChange.middleware";
-import { validateShema } from "../../../globals/middlewares/validate.middleware";
+import express from "express";
 import { commentController } from "../controller/comment.controller";
-import {
-  createCommentSchema,
-  updateCommentStatusSchema,
+import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
+import { validateShema } from "../../../globals/middlewares/validate.middleware";
+import { 
+    createCommentSchema, 
+    updateCommentSchema, 
+    adminStatusSchema 
 } from "../schema/comment.schema";
+import { verifyUser, checkpermission } from "../../../globals/middlewares/auth.middleware";
 
-
+// مثال: /api/v1/products/:productId/comments
 const commentRoute = express.Router({ mergeParams: true });
-commentRoute.use(verifyUser);
 
-commentRoute.get(
-  '/',
-  asyncWrapper(commentController.getForProduct.bind(commentController))
-);
+commentRoute.get("/", asyncWrapper(commentController.getForProduct.bind(commentController)));
+
+commentRoute.use(verifyUser);
 
 commentRoute.post(
   "/",
@@ -28,33 +22,30 @@ commentRoute.post(
   asyncWrapper(commentController.create.bind(commentController))
 );
 
-commentRoute.patch(
-  "/:commentId",
-  validateShema(updateCommentStatusSchema),
-  asyncWrapper(commentController.update.bind(commentController))
+const singleCommentRoute = express.Router();
+singleCommentRoute.use(verifyUser);
+
+singleCommentRoute.put(
+    "/:commentId", 
+    validateShema(updateCommentSchema),
+    asyncWrapper(commentController.update.bind(commentController))
 );
 
-commentRoute.delete(
-  "/:commentId",
-  asyncWrapper(commentController.delete.bind(commentController))
+singleCommentRoute.delete(
+    "/:commentId", 
+    asyncWrapper(commentController.delete.bind(commentController))
 );
-
-
-
-//! admin commentRoute
 
 const adminCommentRoute = express.Router();
-adminCommentRoute.use(verifyUser); 
-adminCommentRoute.get(
-  "/",
-  asyncWrapper(commentController.getAll.bind(commentController))
-);
+adminCommentRoute.use(verifyUser);
+adminCommentRoute.use(checkpermission("Admin"));
+
+adminCommentRoute.get("/", asyncWrapper(commentController.getAllAdmin.bind(commentController)));
 
 adminCommentRoute.patch(
   "/:commentId/status",
-  checkpermission("Shop","Admin"),
-  validateShema(updateCommentStatusSchema),
+  validateShema(adminStatusSchema),
   asyncWrapper(commentController.updateStatus.bind(commentController))
 );
 
-export { commentRoute, adminCommentRoute };
+export { commentRoute, singleCommentRoute, adminCommentRoute };
