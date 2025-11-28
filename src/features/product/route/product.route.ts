@@ -17,7 +17,7 @@ productRoute.get("/:id", asyncWrapper(productController.getOne.bind(productContr
 
 productRoute.use(verifyUser);
 productRoute.use(preventInActiveUser);
-productRoute.use(checkpermission("ADMIN")); 
+productRoute.use(checkpermission("ADMIN"));
 
 productRoute.post(
   "/",
@@ -27,10 +27,10 @@ productRoute.post(
   ]),
   (req, res, next) => {
     if (req.body.skus && typeof req.body.skus === "string") {
-      try { req.body.skus = JSON.parse(req.body.skus); } catch (e) {}
+      try { req.body.skus = JSON.parse(req.body.skus); } catch (e) { }
     }
     if (req.body.attributeValueIds && typeof req.body.attributeValueIds === "string") {
-      try { req.body.attributeValueIds = JSON.parse(req.body.attributeValueIds); } catch (e) {}
+      try { req.body.attributeValueIds = JSON.parse(req.body.attributeValueIds); } catch (e) { }
     }
     next();
   },
@@ -41,7 +41,15 @@ productRoute.post(
 
 productRoute.put(
   "/:id",
-  productUpload.fields([{ name: "mainImage", maxCount: 1 }]),
+  productUpload.fields([{ name: "mainImage", maxCount: 1 }, { name: "galleryImages", maxCount: 5 }]),
+  (req, res, next) => {
+    if (req.body.skus && typeof req.body.skus === "string") {
+      try { req.body.skus = JSON.parse(req.body.skus); } catch (e) { }
+    }
+    if (req.body.basePrice) req.body.basePrice = Number(req.body.basePrice);
+    if (req.body.discountPercent) req.body.discountPercent = Number(req.body.discountPercent);
+    next();
+  },
   validateShema(productUpdateSchema),
   asyncWrapper(productController.update.bind(productController))
 );

@@ -5,53 +5,53 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 class ProductController {
   //+ add product
   public async create(req: Request, res: Response) {
-    const files = req.files as {[fieldname: string]: Express.Multer.File[]};
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     let mainImage = "";
     if (files && files["mainImage"] && files["mainImage"].length > 0) {
       mainImage = `/image/products/${files["mainImage"][0].filename}`;
     }
 
-   //? get gallery images
-   let galleryImages: string[] = [];
-   if (files && files["galleryImages"] && files["galleryImages"].length > 0) {
-    galleryImages = files["galleryImages"].map(
-      (file) => `/image/products/${file.filename}`
-    );
-   }
-
-   //? Parse Body Data (Multer sends arrays/objects as strings)
-   const bodyData = {...req.body};
-
-   //? parse skus json string
-   if (bodyData.skus && typeof bodyData.skus === "string") {
-    try {
-      bodyData.skus = JSON.parse(bodyData.skus);
-    } catch (e) {
-      bodyData.skus = [];
+    //? get gallery images
+    let galleryImages: string[] = [];
+    if (files && files["galleryImages"] && files["galleryImages"].length > 0) {
+      galleryImages = files["galleryImages"].map(
+        (file) => `/image/products/${file.filename}`
+      );
     }
-   }
 
-   //? attributeValueIds json string
-   if (
-    bodyData.attributeValueIds &&
-    typeof bodyData.attributeValueIds === "string"
-   ) {
-    try {
+    //? Parse Body Data (Multer sends arrays/objects as strings)
+    const bodyData = { ...req.body };
+
+    //? parse skus json string
+    if (bodyData.skus && typeof bodyData.skus === "string") {
+      try {
+        bodyData.skus = JSON.parse(bodyData.skus);
+      } catch (e) {
+        bodyData.skus = [];
+      }
+    }
+
+    //? attributeValueIds json string
+    if (
+      bodyData.attributeValueIds &&
+      typeof bodyData.attributeValueIds === "string"
+    ) {
+      try {
         bodyData.attributeValueIds = JSON.parse(bodyData.attributeValueIds);
       } catch (e) {
         bodyData.attributeValueIds = [];
       }
-   }
+    }
 
-   //? call service
-   const product = await productService.createProduct(
-    bodyData,
-    req.currentUser.id.toString(),
-    mainImage,
-    galleryImages
-   );
+    //? call service
+    const product = await productService.createProduct(
+      bodyData,
+      req.currentUser.id.toString(),
+      mainImage,
+      galleryImages
+    );
 
-   res.status(HTTP_STATUS.create).json({
+    res.status(HTTP_STATUS.create).json({
       message: "Product created successfully",
       data: product,
     });
@@ -65,11 +65,28 @@ class ProductController {
       mainImage = `/image/products/${files["mainImage"][0].filename}`;
     }
 
+    //? check gallery images
+    let galleryImages: string[] = [];
+    if (files && files["galleryImages"] && files["galleryImages"].length > 0) {
+      galleryImages = files["galleryImages"].map(
+        (file) => `/image/products/${file.filename}`
+      );
+    }
+
+    //? parse body data
+    const bodyData = { ...req.body };
+
+    //? parse json string skus if send as string
+    if (bodyData.skus && typeof bodyData.skus === "string") {
+      try { bodyData.skus = JSON.parse(bodyData.skus); } catch (e) { bodyData.skus = [] }
+    }
+
     const product = await productService.updateProduct(
       req.params.id,
-      req.body,
+      bodyData,
       req.currentUser.id.toString(),
-      mainImage
+      mainImage,
+      galleryImages,
     );
 
     res.status(HTTP_STATUS.ok).json({
@@ -91,6 +108,8 @@ class ProductController {
 
   // Soft Delete
   public async delete(req: Request, res: Response) {
+    console.log(req.currentUser.role, req.currentUser.id.toString());
+    
     await productService.softDelete(
       req.params.id,
       req.currentUser.id.toString(),

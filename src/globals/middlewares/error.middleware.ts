@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { HTTP_STATUS } from "../constants/http";
+import { MulterError } from "multer";
 
 //! ابسترک یعنی این کلاس یه کلاس ناقس هست و خودش به تنهایی نمیتونه کلاس بسازه و فقط بیس و پایه برای بقیه هست
 
@@ -69,3 +70,53 @@ export function asyncWrapper(calback: any) {
     }
   };
 }
+
+export const globalErrorHandler = (
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (err instanceof CustomError) {
+    return res.status(HTTP_STATUS.bad_erquest).json({
+      status: err.status,
+      message: err.message,
+    })
+  }
+
+  if (err instanceof MulterError) {
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res.status(HTTP_STATUS.bad_erquest).json({
+        status: "error",
+        message: `فیلد فایل ارسالی اشتباه است یا تعداد فایل‌ها بیش از حد مجاز است. (فیلد: ${err.field})`,
+      });
+    }
+
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(HTTP_STATUS.bad_erquest).json({
+        status: "error",
+        message: "حجم فایل ارسالی بیش از حد مجاز است.",
+      });
+    }
+
+    return res.status(HTTP_STATUS.bad_erquest).json({
+      status: "error",
+      message: `خطای آپلود فایل: ${err.message}`,
+    });
+  }
+
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(HTTP_STATUS.bad_erquest).json({
+      status: "error",
+      message: "فرمت JSON ارسال شده نامعتبر است.",
+    });
+  }
+
+  console.error("💥 Server Error:", err);
+  return res.status(HTTP_STATUS.internal_server_error).json({
+    status: "error",
+    message: "خطای داخلی سرور. لطفاً با پشتیبانی تماس بگیرید.",
+  });
+}
+
+

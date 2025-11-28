@@ -44,9 +44,9 @@ class ProductService {
     return await prisma.$transaction(async (tx) => {
       //? check sku 
       if (data.skus && data.skus.length > 0) {
-        const skuCode =data.skus.map((s) => s.sku);
+        const skuCode = data.skus.map((s) => s.sku);
         const existingSku = await tx.productSKU.findFirst({
-          where: {sku: {in: skuCode}},
+          where: { sku: { in: skuCode } },
         });
         if (existingSku) {
           throw new BadRequestException(`کد SKU تکراری است: ${existingSku.sku}`);
@@ -130,13 +130,27 @@ class ProductService {
   //! update with price tracking
   public async updateProduct(
     id: string,
-    data: IProductUpdate,
+    data: IProductUpdate & { skus?: any[] },
     userId: string, // who is updating
-    newMainImage?: string
+    newMainImage?: string,
+    newGalleryImages?: string[],
   ) {
+    //? find existing product
     const product = await this.findProductById(id);
 
     return await prisma.$transaction(async (tx) => {
+      //? handle slug change
+      let newSlug = product.slug;
+      if (data.name && data.name !== product.name) {
+        newSlug = this.generateSlug(data.name);
+      }
+
+      if (data.basePrice && Number(data.basePrice) !== product.basePrice) {
+        await tx.productPriceHistory.create({
+          data: { productId: product.id, oldPrice: product.basePrice, newPrice: Number(data.basePrice), changedBy: userId }
+        });
+      }
+
       //? check if price changed
       if (data.basePrice && data.basePrice !== product.basePrice) {
         await tx.productPriceHistory.create({
@@ -149,10 +163,66 @@ class ProductService {
         });
       }
 
+      //? handle main image cleanup
+      if (newGalleryImages && newGalleryImages.length > 0) {
+        const oldGallery = await tx.productGallery.findMany({
+          where: { productId: id },
+        });
+
+        for (const img of oldGallery) {
+          const filename = path.basename(img.imageUrl);
+          await fileRemoveService.deleteUpload(filename, "products");
+        }
+
+        await tx.productGallery.deleteMany({
+          where: { productId: id },
+        });
+
+        await tx.productGallery.createMany({
+          data: newGalleryImages.map((url) => ({
+            productId: product.id,
+            imageUrl: url,
+          })),
+        });
+      }
+
+      //? handle sku updates 
+      if (data.skus && data.skus.length > 0) {
+        for (const itemSku of data.skus) {
+          const existingSku = await tx.productSKU.findUnique({
+            where: { sku: itemSku.sku },
+          });
+
+          if (existingSku) {
+            //? update existing sku
+            await tx.productSKU.update({
+              where: { id: existingSku.id },
+              data: {
+                price: itemSku.price ? Number(itemSku.price) : undefined,
+                quantity: itemSku.quantity ? Number(itemSku.quantity) : undefined,
+                attributesJson: itemSku.attributes || undefined,
+              },
+            });
+          } else {
+            //? create new sku
+            await tx.productSKU.create({
+              data: {
+                productId: product.id,
+                sku: itemSku.sku,
+                price: Number(itemSku.price),
+                quantity: Number(itemSku.quantity),
+                attributesJson: itemSku.attributes,
+              },
+            });
+          }
+        }
+      }
+
       return await tx.product.update({
         where: { id },
         data: {
-          name: data.name,
+          name: data.name || undefined,
+          slug: newSlug,
           shortDescription: data.shortDescription,
           longDescription: data.longDescription,
           mainImage: newMainImage || product.mainImage,
@@ -163,6 +233,11 @@ class ProductService {
           isActive: data.isActive,
           categoryId: data.categoryId,
         },
+        //? return full details including updated relations
+        include: {
+          gallery: true,
+          skus: true,
+        }
       });
     });
   }
@@ -173,7 +248,7 @@ class ProductService {
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, categoryId, minPrice, maxPrice, sort } = query;
+    const { search, categoryId, minPrice, maxPrice, sort, hasDiscount } = query;
 
     //? base filter always exclude deleted items sort default
     const whereClause: Prisma.ProductWhereInput = {
@@ -200,6 +275,11 @@ class ProductService {
       if (maxPrice) whereClause.basePrice.lte = Number(maxPrice);
     }
 
+    //? discount filter 
+    if (hasDiscount === "true") {
+      whereClause.discountPercent = { gt: 0 }
+    }
+
     //? sort
     let orderBy: any = { createdAt: "desc" };
     if (sort === "price_asc") orderBy = { basePrice: "asc" };
@@ -211,22 +291,34 @@ class ProductService {
         skip,
         take: limit,
         orderBy: orderBy,
-        include: {
+        //? select minimal fields for product cart 
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          mainImage: true,
+          basePrice: true,
+          discountPercent: true,
+          createdAt: true,
           category: { select: { name: true, slug: true } },
           skus: {
             where: { deletedAt: null },
             select: { price: true, quantity: true },
-          },
-        },
+            take: 1,
+          }
+        }
       }),
       prisma.product.count({ where: whereClause }),
     ]);
 
     return {
       data: products,
-      total,
-      totalpages: Math.ceil(total / limit),
-      currentPage: page,
+      pagination: {
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        limit
+      }
     };
   }
 
@@ -262,12 +354,25 @@ class ProductService {
       },
       include: {
         category: true,
+        gallery: true,
         skus: { where: { deletedAt: null } }, // exclude deleted skus
         priceHistory: { orderBy: { createdAt: "desc" }, take: 5 }, // show last 5 price changes
         attributes: {
           include: { attributeValue: { include: { attribute: true } } },
         },
-        comments: true,
+        comments: {
+          where: { isApproved: true },
+          take: 3,
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: {
+              select: {
+                name: true,
+                avatar: true,
+              }
+            }
+          }
+        },
       },
     });
 
@@ -285,7 +390,7 @@ class ProductService {
   //! remove gallery
   public async removeGalleryImage(galleryId: string) {
     const img = await prisma.productGallery.findUnique({
-      where: {id: galleryId},
+      where: { id: galleryId },
     });
     if (!img) throw new notFoundExeption("تصویری یافت نشد");
 
@@ -294,13 +399,13 @@ class ProductService {
     await fileRemoveService.deleteUpload(filename, "products");
 
     //? removefile for db
-    await prisma.productGallery.delete({where: {id: galleryId}});
+    await prisma.productGallery.delete({ where: { id: galleryId } });
   }
 
   //! for adding sku later
   public async addSkuToProduct(productId: string, data: any) {
     return await prisma.productSKU.create({
-      data:{
+      data: {
         productId,
         sku: data.sku,
         price: Number(data.price),

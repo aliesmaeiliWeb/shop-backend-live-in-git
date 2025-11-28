@@ -6,6 +6,7 @@ import "dotenv/config";
 import appRoutes from "./globals/routes/appRoutes";
 import {
   CustomError,
+  globalErrorHandler,
   IError,
   notFoundExeption,
 } from "./globals/middlewares/error.middleware";
@@ -91,21 +92,7 @@ class server {
       //! بعد از ارور هندلر در میدل ور دیگر نیازی به این زیری نداریم برای بهتر شدن کد
     });
 
-    //? global
-    this.app.use(
-      (err: IError, req: Request, res: Response, next: NextFunction) => {
-        console.log(err);
-        if (err instanceof CustomError) {
-          return res.status(err.statusCode).json(err.getErrorResponse());
-        }
-        next();
-
-        return res.status(HTTP_STATUS.internal_server_error).json({
-          message: "internall Error",
-          data: { err },
-        });
-      }
-    );
+    this.app.use(globalErrorHandler);
   }
 
   private startServer() {
