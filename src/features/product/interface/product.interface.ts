@@ -2,6 +2,7 @@ export interface ISkuCreate {
   sku: string;
   price: number;
   quantity: number;
+  discountPercent?: number;
   attributes: Record<string, string>; // => { "Color": "Red", "Size": "XL" }
 }
 

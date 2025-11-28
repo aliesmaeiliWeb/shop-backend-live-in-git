@@ -17,9 +17,7 @@ class CartService {
         items: {
           include: {
             //? we need the real price from sku table
-            productSKU: {
-              include: { product: { select: { discountPercent: true } } },
-            },
+            productSKU: true,
           },
         },
       },
@@ -31,7 +29,7 @@ class CartService {
     let totalPrice = 0;
     for (const item of cart.items) {
       const originalPrice = item.productSKU.price;
-      const discount = item.productSKU.product.discountPercent || 0;
+      const discount = item.productSKU.discountPercent || 0;
 
       const realPrice = originalPrice - (originalPrice * discount / 100);
       totalPrice += item.quantity * realPrice;

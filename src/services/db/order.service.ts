@@ -125,9 +125,12 @@ class OrderService {
       const orderItemData = cart.items.map((item) => {
         const originalPrice = item.productSKU.price;
         const discountPercent = item.productSKU.product.discountPercent || 0;
+        const skuDiscount = item.productSKU.discountPercent || 0;
+
+        const effectiveDiscount = skuDiscount > 0 ? skuDiscount : discountPercent;
 
         const finalItemPrice =
-          originalPrice - (originalPrice * discountPercent) / 100;
+          originalPrice - (originalPrice * effectiveDiscount) / 100;
 
         return {
           orderId: order.id,
@@ -141,7 +144,7 @@ class OrderService {
       });
 
       //? create order itmems
-      await tx.orderItem.createMany({data : orderItemData});
+      await tx.orderItem.createMany({ data: orderItemData });
 
       //? update coupon usage
       if (couponCode) {

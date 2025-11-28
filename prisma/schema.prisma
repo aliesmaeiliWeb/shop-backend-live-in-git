@@ -132,23 +132,24 @@ model ProductGallery {
 
 // The actual sellable item (Example: T-Shirt Red XL)
 model ProductSKU {
-  id             String       @id @default(uuid())
-  sku            String       @unique // The barcode/code
-  price          Float
-  quantity       Int          @default(0) // Stock
+  id              String       @id @default(uuid())
+  sku             String       @unique // The barcode/code
+  price           Float
+  quantity        Int          @default(0) // Stock
+  discountPercent Int?         @default(0)
 
-  productId      String
-  product        Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  //             Relations
-  cartItems      CartItem[]
-  orderItems     OrderItem[]
+  //              Relations
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
 
-  deletedAt      DateTime?
+  deletedAt       DateTime?
 
   // Which attributes define this SKU? (JSON is easier for simple shops)
   // Example: { "color": "Red", "size": "XL" }
-  attributesJson Json?
+  attributesJson  Json?
 }
 
 model ProductPriceHistory {

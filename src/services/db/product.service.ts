@@ -6,6 +6,7 @@ import {
 import { Prisma } from "../../generated/prisma";
 import {
   BadRequestException,
+  CustomError,
   notFoundExeption,
   unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
@@ -32,99 +33,152 @@ class ProductService {
     return product;
   }
 
+  private transformProduct(product: any) {
+    if (!product) return null;
+    const discount = product.discountPercent || 0;
+    const parentFinalPrice =
+      product.basePrice - (product.basePrice * discount) / 100;
+
+    //? calculate final price for each sku
+    let transformedSkus = [];
+    if (product.skus) {
+      transformedSkus = product.skus.map((sku: any) => {
+        const effectiveDiscount = product.discountPercent || 0;
+        const skuFinalPrice = sku.price - (sku.price * discount) / 100;
+        return {
+          ...sku,
+          finalPrice: skuFinalPrice,
+          appliedDiscount: effectiveDiscount,
+        };
+      });
+    }
+
+    return { ...product, finalPrice: parentFinalPrice, skus: transformedSkus };
+  }
+
   //! create with price history log
   public async createProduct(
     data: IProductCreate,
     ownerId: string,
     mainImageUrl: string,
-    galleryImageUrls: string[],
+    galleryImageUrls: string[]
   ) {
     const slug = this.generateSlug(data.name);
 
-    return await prisma.$transaction(async (tx) => {
-      //? check sku 
-      if (data.skus && data.skus.length > 0) {
-        const skuCode = data.skus.map((s) => s.sku);
-        const existingSku = await tx.productSKU.findFirst({
-          where: { sku: { in: skuCode } },
+    try {
+      const createdProductId = await prisma.$transaction(async (tx) => {
+        //? check sku
+        if (data.skus && data.skus.length > 0) {
+          const skuCode = data.skus.map((s) => s.sku);
+          const existingSku = await tx.productSKU.findFirst({
+            where: { sku: { in: skuCode } },
+          });
+
+          if (existingSku)
+            throw new BadRequestException("کد اس کایو تکراری است");
+        }
+
+        //? create the parent product
+        const product = await tx.product.create({
+          data: {
+            name: data.name,
+            slug: slug,
+            shortDescription: data.shortDescription,
+            longDescription: data.longDescription,
+            mainImage: mainImageUrl,
+            basePrice: Number(data.basePrice),
+            discountPercent: data.discountPercent
+              ? Number(data.discountPercent)
+              : 0,
+            categoryId: data.categoryId,
+            ownerId: ownerId,
+          },
         });
-        if (existingSku) {
-          throw new BadRequestException(`کد SKU تکراری است: ${existingSku.sku}`);
-        }
-      }
 
-      //? create the parent product
-      const product = await tx.product.create({
-        data: {
-          name: data.name,
-          slug: slug,
-          shortDescription: data.shortDescription,
-          longDescription: data.longDescription,
-          mainImage: mainImageUrl,
-          basePrice: Number(data.basePrice),
-          discountPercent: data.discountPercent
-            ? Number(data.discountPercent)
-            : 0,
-          categoryId: data.categoryId,
-          ownerId: ownerId,
-        },
-      });
-
-      //? log initial price
-      await tx.productPriceHistory.create({
-        data: {
-          productId: product.id,
-          oldPrice: 0,
-          newPrice: Number(data.basePrice),
-          changedBy: ownerId,
-        },
-      });
-
-      //? save gallery images
-      if (galleryImageUrls.length > 0) {
-        await tx.productGallery.createMany({
-          data: galleryImageUrls.map((url) => ({
+        //? log initial price
+        await tx.productPriceHistory.create({
+          data: {
             productId: product.id,
-            imageUrl: url,
-          }))
-        })
-      }
+            oldPrice: 0,
+            newPrice: Number(data.basePrice),
+            changedBy: ownerId,
+          },
+        });
 
-      //? create skus
-      if (data.skus && data.skus.length > 0) {
-        for (const sku of data.skus) {
-          await tx.productSKU.create({
-            data: {
+        //? save gallery images
+        if (galleryImageUrls.length > 0) {
+          await tx.productGallery.createMany({
+            data: galleryImageUrls.map((url) => ({
               productId: product.id,
-              sku: sku.sku,
-              price: Number(sku.price),
-              quantity: Number(sku.quantity),
-              attributesJson: sku.attributes,
-            },
+              imageUrl: url,
+            })),
           });
         }
-      }
 
-      //? link attributes for filtering
-      if (data.attributeValueIds && data.attributeValueIds.length > 0) {
-        const uniqueIds = [...new Set(data.attributeValueIds)];
-        for (const valId of uniqueIds) {
-          const exists = await tx.attributeValue.findUnique({
-            where: { id: valId },
-          });
-          if (exists) {
-            await tx.productAttribute.create({
+        //? create skus
+        if (data.skus && data.skus.length > 0) {
+          for (const sku of data.skus) {
+            await tx.productSKU.create({
               data: {
                 productId: product.id,
-                attributeValueId: valId,
+                sku: sku.sku,
+                price: Number(sku.price),
+                quantity: Number(sku.quantity),
+                discountPercent: sku.discountPercent
+                  ? Number(sku.discountPercent)
+                  : 0,
+                attributesJson: sku.attributes,
               },
             });
           }
         }
-      }
 
-      return product;
-    });
+        //? link attributes for filtering
+        if (data.attributeValueIds && data.attributeValueIds.length > 0) {
+          const uniqueIds = [...new Set(data.attributeValueIds)];
+          for (const valId of uniqueIds) {
+            const exists = await tx.attributeValue.findUnique({
+              where: { id: valId },
+            });
+            if (exists) {
+              await tx.productAttribute.create({
+                data: {
+                  productId: product.id,
+                  attributeValueId: valId,
+                },
+              });
+            }
+          }
+        }
+
+        return product.id;
+      });
+
+      //? fetch and transform
+      const fullProduct = await prisma.product.findUnique({
+        where: { id: createdProductId },
+        include: {
+          gallery: true,
+          skus: true,
+          category: {
+            select: { name: true },
+          },
+        },
+      });
+
+      return this.transformProduct(fullProduct);
+    } catch (error: any) {
+      console.error("create error product: ", error);
+      if (error.code === "P2002") {
+        const target = error.meta?.target;
+        if (target && target.includes("slug"))
+          throw new BadRequestException("Duplicate Product Name");
+        if (target && target.includes("sku"))
+          throw new BadRequestException("Duplicate SKU Code");
+      }
+      if (error instanceof CustomError) throw error;
+      throw new Error("System Error Creating Product");
+    }
   }
 
   //! update with price tracking
@@ -133,22 +187,21 @@ class ProductService {
     data: IProductUpdate & { skus?: any[] },
     userId: string, // who is updating
     newMainImage?: string,
-    newGalleryImages?: string[],
+    newGalleryImages?: string[]
   ) {
     //? find existing product
     const product = await this.findProductById(id);
 
-    return await prisma.$transaction(async (tx) => {
+    const updatedProduct = await prisma.$transaction(async (tx) => {
       //? handle slug change
       let newSlug = product.slug;
       if (data.name && data.name !== product.name) {
         newSlug = this.generateSlug(data.name);
       }
 
-      if (data.basePrice && Number(data.basePrice) !== product.basePrice) {
-        await tx.productPriceHistory.create({
-          data: { productId: product.id, oldPrice: product.basePrice, newPrice: Number(data.basePrice), changedBy: userId }
-        });
+      if (newMainImage && product.mainImage) {
+        const oldFilename = path.basename(product.mainImage);
+        await fileRemoveService.deleteUpload(oldFilename, "products");
       }
 
       //? check if price changed
@@ -186,7 +239,7 @@ class ProductService {
         });
       }
 
-      //? handle sku updates 
+      //? handle sku updates
       if (data.skus && data.skus.length > 0) {
         for (const itemSku of data.skus) {
           const existingSku = await tx.productSKU.findUnique({
@@ -199,7 +252,13 @@ class ProductService {
               where: { id: existingSku.id },
               data: {
                 price: itemSku.price ? Number(itemSku.price) : undefined,
-                quantity: itemSku.quantity ? Number(itemSku.quantity) : undefined,
+                quantity: itemSku.quantity
+                  ? Number(itemSku.quantity)
+                  : undefined,
+                discountPercent:
+                  itemSku.discountPercent !== undefined
+                    ? Number(itemSku.discountPercent)
+                    : undefined,
                 attributesJson: itemSku.attributes || undefined,
               },
             });
@@ -237,9 +296,11 @@ class ProductService {
         include: {
           gallery: true,
           skus: true,
-        }
+        },
       });
     });
+
+    return this.transformProduct(updatedProduct);
   }
 
   //! advanced get all filter engine
@@ -275,9 +336,9 @@ class ProductService {
       if (maxPrice) whereClause.basePrice.lte = Number(maxPrice);
     }
 
-    //? discount filter 
+    //? discount filter
     if (hasDiscount === "true") {
-      whereClause.discountPercent = { gt: 0 }
+      whereClause.discountPercent = { gt: 0 };
     }
 
     //? sort
@@ -291,7 +352,7 @@ class ProductService {
         skip,
         take: limit,
         orderBy: orderBy,
-        //? select minimal fields for product cart 
+        //? select minimal fields for product cart
         select: {
           id: true,
           name: true,
@@ -300,25 +361,30 @@ class ProductService {
           basePrice: true,
           discountPercent: true,
           createdAt: true,
+          gallery: {
+            select: { imageUrl: true, id: true },
+          },
           category: { select: { name: true, slug: true } },
           skus: {
             where: { deletedAt: null },
             select: { price: true, quantity: true },
             take: 1,
-          }
-        }
+          },
+        },
       }),
       prisma.product.count({ where: whereClause }),
     ]);
 
+    const dataWithFinalPrice = products.map((p) => this.transformProduct(p));
+
     return {
-      data: products,
+      data: dataWithFinalPrice,
       pagination: {
         total,
         page,
         totalPages: Math.ceil(total / limit),
-        limit
-      }
+        limit,
+      },
     };
   }
 
@@ -369,15 +435,15 @@ class ProductService {
               select: {
                 name: true,
                 avatar: true,
-              }
-            }
-          }
+              },
+            },
+          },
         },
       },
     });
 
     if (!product) throw new notFoundExeption("محصولی یافت نشد");
-    return product;
+    return this.transformProduct(product);
   }
 
   //! gallery helpers
