@@ -48,7 +48,7 @@ class CartService {
       where: { userId },
       include: {
         items: {
-          orderBy: { id: "desc" },
+          orderBy: {id: "asc"},
           include: {
             productSKU: {
               include: {
@@ -196,6 +196,10 @@ class CartService {
   public async syncGuestCart(userId: string, guestItems: ICartSynceItem[]) {
     //? loop through guest items and use existing logic to add them safely
     //? this ensures stock is cheched and quantities are merged correctly
+    if (!guestItems || !Array.isArray(guestItems)) {
+        return this.getCart(userId);
+    };
+    
     for (const item of guestItems) {
       try {
         await this.addToCart(userId, item.skuId, item.quantity);

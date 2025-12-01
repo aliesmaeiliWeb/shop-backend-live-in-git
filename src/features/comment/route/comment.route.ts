@@ -9,7 +9,7 @@ import {
 } from "../schema/comment.schema";
 import { verifyUser, checkpermission } from "../../../globals/middlewares/auth.middleware";
 
-// مثال: /api/v1/products/:productId/comments
+// exam: /api/v1/products/:productId/comments
 const commentRoute = express.Router({ mergeParams: true });
 
 commentRoute.get("/", asyncWrapper(commentController.getForProduct.bind(commentController)));
@@ -38,7 +38,7 @@ singleCommentRoute.delete(
 
 const adminCommentRoute = express.Router();
 adminCommentRoute.use(verifyUser);
-adminCommentRoute.use(checkpermission("Admin"));
+adminCommentRoute.use(checkpermission("ADMIN"));
 
 adminCommentRoute.get("/", asyncWrapper(commentController.getAllAdmin.bind(commentController)));
 

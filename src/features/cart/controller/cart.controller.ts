@@ -40,7 +40,9 @@ class CartController {
   //? remove item from cart
   public async removeItem(req:Request, res:Response) {
     const {itemId} = req.params;
-    const cart = await cartService.removeItem(req.params.id.toString(), itemId);
+    const userId = req.currentUser.id.toString();
+
+    const cart = await cartService.removeItem(userId, itemId);
 
     res.status(HTTP_STATUS.ok).json({
       message: "آیتم با موفقیت حذف شد",
@@ -51,7 +53,8 @@ class CartController {
   //? sync guest cart
   public async syncCart(req:Request, res:Response) {
     const {item} = req.body;
-    const cart = await cartService.syncGuestCart(req.currentUser.id.toString(), item);
+    const safeItem = Array.isArray(item) ? item: [];
+    const cart = await cartService.syncGuestCart(req.currentUser.id.toString(), safeItem);
     
     res.status(HTTP_STATUS.ok).json({
       message: "همگام سازی با موفقیت انجام شد",

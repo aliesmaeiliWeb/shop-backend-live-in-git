@@ -40,7 +40,7 @@ orderRouter.patch(
 );
 
 // --- Admin Routes (Admin & Shop) ---
-orderRouter.use(checkpermission("Admin", "Shop"));
+orderRouter.use(checkpermission("ADMIN"));
 
 // 4. Specific Admin Routes
 orderRouter.get(

@@ -22,7 +22,8 @@ const appRoutes = (app: Application) => {
     app.use('/api/v1/categories', categoryRoute);
     app.use('/api/v1/attributes', attributeRoute);
     
-    productRoute.use("/:productId/comments", commentRoute);
+    // productRoute.use("/:productId/comments", commentRoute);
+    app.use('/api/v1/products/:productId/comments', commentRoute);
     app.use('/api/v1/products', productRoute);
 
     // --- Shopping Logic ---

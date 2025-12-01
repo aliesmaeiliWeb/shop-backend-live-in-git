@@ -6,7 +6,7 @@ import { dashboardController } from "../controller/dashboard-api.controller";
 const dashboardRoute = express.Router();
 
 dashboardRoute.use(verifyUser);
-dashboardRoute.use(checkpermission("Admin", "Shop_Manager"));
+dashboardRoute.use(checkpermission("ADMIN"));
 
 dashboardRoute.get(
   "/cards",

@@ -10,8 +10,98 @@ import {
 } from "../../features/user/interface/auth.interface";
 import { tokenHelper } from "../../globals/helpers/tokenHelper";
 import { smsHelper } from "../../globals/helpers/sms.helper";
+import {
+  IAdminCreate,
+  IAdminLogin,
+} from "../../features/user/interface/user.interface";
 
 class AuthService {
+  //! login Admin whth phone and password
+  public async loginAdmin(data: IAdminLogin) {
+    const { phoneNumber, password } = data;
+
+    //? find admin
+    const user = await prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new unauthorizedExeption("دسترسی غیر مجاز");
+    }
+
+    //? check role
+    if (user.role !== "ADMIN") {
+      throw new unauthorizedExeption(
+        "برای دسترسی به این بخش باید ادمین وبسایت باشید"
+      );
+    }
+
+    //? check password
+    const isMatch = await bcrypt.compare(password, user.password || "");
+    if (!isMatch) {
+      throw new unauthorizedExeption("دسترسی غیر مجاز");
+    }
+
+    // 4. Generate Tokens
+    const accessToken = tokenHelper.generateAccessToken({
+      id: user.id,
+      role: user.role,
+    });
+    const refreshToken = tokenHelper.generateRefreshToken({
+      id: user.id,
+      role: user.role,
+    });
+
+    return { accessToken, refreshToken, user };
+  }
+
+  //!  change password
+  public async changepassword(userId: string, data: any) {
+    const { oldPassword, newPassword } = data;
+
+    //? find user
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException("کاربری با این مشخصات پیدا نشد");
+    }
+
+    if (!user.password) {
+      throw new BadRequestException("کاربر مورد نظر رمز عبور ندارد");
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException("رمز عبور فعلی اشتباه است");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: "password changed successfully" };
+  }
+
+  // //! create first admin
+  public async CreateInitialAdmin(data: IAdminCreate) {
+    const { phoneNumber, password } = data;
+    const existing = await prisma.user.findUnique({ where: { phoneNumber } });
+    if (existing) throw new BadRequestException("کاربر موجود است");
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const admin = await prisma.user.create({
+      data: {
+        phoneNumber: data.phoneNumber,
+        password: hashedPassword,
+        name: data.name,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+
+    return admin;
+  }
+
   //! get phone number
   public async requesOtp(data: IAuthRequestOtp) {
     const { phoneNumber } = data;
@@ -45,7 +135,7 @@ class AuthService {
 
     if (process.env.NODE_ENV === "development") {
       console.log(`DEV MODE SMS: ${otpCode}`);
-    };
+    }
 
     // send otp
     await smsHelper.sendOTP(phoneNumber, otpCode);

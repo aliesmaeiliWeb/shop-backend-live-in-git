@@ -8,7 +8,7 @@ class CommentController {
       text: req.body.text,
       rating: req.body.rating,
       userId: req.currentUser.id.toString(),
-      productId: req.params.productId, // از URL میگیریم
+      productId: req.params.productId, 
     });
     res
       .status(HTTP_STATUS.create)

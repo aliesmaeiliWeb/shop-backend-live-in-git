@@ -13,7 +13,7 @@ import {
 
 const couponRoute = express.Router();
 
-couponRoute.use(verifyUser, checkpermission("Admin", "Shop_Manager"));
+couponRoute.use(verifyUser, checkpermission("ADMIN"));
 
 couponRoute.post(
   "/",

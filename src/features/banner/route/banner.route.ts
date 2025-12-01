@@ -20,7 +20,7 @@ bannerRoute.get(
 );
 
 bannerRoute.use(verifyUser);
-bannerRoute.use(checkpermission("Admin", "Shop_Manager"));
+bannerRoute.use(checkpermission("ADMIN"));
 
 bannerRoute.get(
   "/admin/all",

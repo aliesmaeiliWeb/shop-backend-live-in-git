@@ -27,7 +27,7 @@ userRoute.put(
 );
 
 //! admin routes (only admin)
-userRoute.use(checkpermission("Admin"));
+userRoute.use(checkpermission("ADMIN"));
 
 userRoute.post(
   "/",

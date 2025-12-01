@@ -29,7 +29,16 @@ class UserController {
   }
 
   public async create(req: Request, res: Response) {
-    const newUser = await userService.create(req.body);
+    const bodyData = { ...req.body };
+
+    if (req.file) {
+      bodyData.avatar = `/image/avatar/${req.file.filename}`;
+    }
+
+    if (bodyData.isActive === "true") bodyData.isActive = true;
+    if (bodyData.isActive === "false") bodyData.isActive = false;
+
+    const newUser = await userService.create(bodyData);
     res.status(HTTP_STATUS.create).json({
       message: "کاربر ساخته شد به وسیله ادمین",
       data: newUser,
@@ -48,8 +57,11 @@ class UserController {
 
   public async update(req: Request, res: Response) {
     const avatarUrl = req.file
-      ? `image/avatar/${req.file.fieldname}`
+      ? `/image/avatar/${req.file.filename}`
       : undefined;
+
+    if (req.body.isActive === "true") req.body.isActive = true;
+    if (req.body.isActive === "false") req.body.isActive = false;
 
     const updateUser = await userService.update(
       req.params.id,

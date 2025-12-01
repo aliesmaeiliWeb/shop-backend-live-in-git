@@ -61,7 +61,9 @@ class UserService {
           lastName: true,
           email: true,
           role: true,
-          isActive: true
+          isActive: true,
+          avatar: true,
+          createdAt: true,
         }
       }),
       prisma.user.count({where}),
@@ -85,7 +87,7 @@ class UserService {
     if (!user) throw new notFoundExeption("یوزری با این مشخصات موجود نیست");
 
     //? security: Remove otp fields befor returning
-    const {otpCode, otpExpiresAt, ...safeUser} = user;
+    const {otpCode, password, otpExpiresAt, ...safeUser} = user;
     return safeUser;
   }
 
@@ -93,13 +95,15 @@ class UserService {
   public async update(id: string, data: IUserUpdateProfile | IUserUpdateAdmin, avatarUrl?: string){
     // user check
     const user = await prisma.user.findUnique({where: {id}});
-    if (!user) throw new notFoundExeption("یوزری با این آیدی یافت نشد")
+    if (!user) throw new notFoundExeption("یوزری با این آیدی یافت نشد");
+
+    const {password, ...safeData} = data as any;
 
     return await prisma.user.update({
       where: {id},
       data: {
-        ...data,
-        avatar: avatarUrl || user.avatar,
+        ...safeData,
+        avatar: avatarUrl,
       },
     });
   }

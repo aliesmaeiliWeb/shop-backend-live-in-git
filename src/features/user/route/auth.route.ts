@@ -4,9 +4,14 @@ import { validateShema } from "../../../globals/middlewares/validate.middleware"
 import { asyncWrapper } from "../../../globals/middlewares/error.middleware";
 import { authController } from "../controller/auth.controller";
 import {
+  adminCreateSchema,
+  adminLoginSchema,
   authRequestOTPSchema,
   authVerifyOTPSchema,
+  changePasswordSchema,
 } from "../schema/user.schema";
+import { userController } from "../controller/user.controller";
+import { verifyUser } from "../../../globals/middlewares/auth.middleware";
 
 const authRoute = express.Router();
 
@@ -22,6 +27,26 @@ authRoute.post(
   authLimiter,
   validateShema(authVerifyOTPSchema),
   asyncWrapper(authController.verifyOtp.bind(authController))
+);
+
+authRoute.post(
+  "/admin/login",
+  authLimiter,
+  validateShema(adminLoginSchema),
+  asyncWrapper(authController.loginAdmin.bind(authController))
+);
+
+authRoute.patch(
+  "/change-password",
+  verifyUser,
+  validateShema(changePasswordSchema),
+  asyncWrapper(authController.changePassword.bind(userController))
+);
+
+authRoute.post(
+  "/admin/create",
+  validateShema(adminCreateSchema),
+  asyncWrapper(authController.createAdmin.bind(authController))
 );
 
 authRoute.post(

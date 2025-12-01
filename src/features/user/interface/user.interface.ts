@@ -20,3 +20,14 @@ export interface IUserUpdateAdmin {
  role?: Role;
  isActive?: boolean
 }
+
+export interface IAdminLogin{
+  phoneNumber: string;
+  password: string
+}
+
+export interface IAdminCreate{
+  phoneNumber: string;
+  password: string;
+  name: string;
+}
