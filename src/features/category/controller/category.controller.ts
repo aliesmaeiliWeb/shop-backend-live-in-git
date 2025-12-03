@@ -5,7 +5,7 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 class CategoryController {
   public async create(req: Request, res: Response) {
     const imageUrl = req.file
-      ? `/uploads/category/${req.file.filename}`
+      ? `/image/category/${req.file.filename}`
       : undefined;
     //? Note: Ensure your Multer helper saves to 'uploads/category'
 
@@ -29,7 +29,7 @@ class CategoryController {
   public async update(req: Request, res: Response) {
     const id = req.params.id;
     const imageUrl = req.file
-      ? `/uploads/category/${req.file.filename}`
+      ? `/image/category/${req.file.filename}`
       : undefined;
 
     const category = await categoryService.updateCategory(

@@ -112,6 +112,58 @@ class UserService {
   public async delete(id: string) {
     await prisma.user.delete({where: {id}});
   }
+
+  //! get all details user
+  public async getUserDetailsWithStats(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: {id: userId},
+      include: {
+        addresses: true,
+        orders: {
+          take: 3,
+          orderBy: {createdAt: "desc"},
+          include: {items: true},
+        },
+        wishlist: {
+          include: {
+            product: {
+              select: {id: true, skus: true, name: true, mainImage: true, basePrice: true, shortDescription: true, slug: true}
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) throw new notFoundExeption("کاربر یافت نشد");
+
+    const stats = await prisma.order.aggregate({
+      where: {
+        userId: userId,
+        status: "PAID"
+      },
+      _sum: {finalPrice: true},
+      _count: {id: true},
+    });
+
+    const totalSpent = stats._sum.finalPrice ||0;
+    const totalOrders = stats._count.id ||0;
+    const averageOrderValue = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
+
+    const {password, otpCode, ...safeUser} = user;
+
+    return {
+      user: safeUser,
+      stats: {
+        totalOrders,
+        totalSpent,
+        averageOrderValue,
+        joinDate: user.createdAt,
+      },
+      lastOrders: user.orders,
+      addresses: user.addresses,
+      wishList: user.wishlist,
+    }
+  }
 }
 
 export const userService: UserService = new UserService();

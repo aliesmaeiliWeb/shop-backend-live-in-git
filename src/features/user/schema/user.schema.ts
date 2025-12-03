@@ -27,6 +27,7 @@ export const userCreateSchema = Joi.object({
   name: Joi.string().min(2).max(50).optional(),
   lastName: Joi.string().min(2).max(50).optional(),
   email: Joi.string().email().optional(),
+  avatar: Joi.string().optional().allow("default", ""),
   role: Joi.string().valid("USER", "ADMIN", "SHOP_MANAGER").default("USER"),
   isActive: Joi.boolean().default(true),
 });

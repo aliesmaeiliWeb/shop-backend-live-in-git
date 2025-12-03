@@ -35,6 +35,12 @@ userRoute.post(
   asyncWrapper(userController.create.bind(userController))
 );
 
+userRoute.get(
+  "/:id/details",
+  checkpermission("ADMIN", "SHOP_MANAGER"),
+  asyncWrapper(userController.getUserDetails.bind(userController)),
+)
+
 userRoute.get("/", asyncWrapper(userController.getAll.bind(userController)));
 
 userRoute.get("/:id", asyncWrapper(userController.getOne.bind(userController)));

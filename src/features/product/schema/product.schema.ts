@@ -5,6 +5,7 @@ const skuSchema = Joi.object({
   sku: Joi.string().required().messages({ "any.required": "کد SKU الزامی است" }),
   price: Joi.number().required().min(0),
   quantity: Joi.number().required().min(0),
+  discountPercent: Joi.number().min(0).max(100).optional().default(0),
   attributes: Joi.object().optional(), // مثل { Color: "Red" }
 });
 

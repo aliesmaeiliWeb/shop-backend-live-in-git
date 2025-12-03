@@ -79,6 +79,15 @@ class UserController {
     await userService.delete(req.params.id);
     res.status(HTTP_STATUS.ok).json({ message: "User deleted" });
   }
+
+  public async getUserDetails(req:Request, res:Response) {
+    const data = await userService.getUserDetailsWithStats(req.params.id)
+
+    res.status(HTTP_STATUS.ok).json({
+      message: "get user details successfully",
+      data
+    });
+  }
 }
 
 export const userController: UserController = new UserController();
