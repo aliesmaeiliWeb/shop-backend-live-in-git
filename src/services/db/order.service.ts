@@ -10,7 +10,7 @@ import {
   ZarinpalRequestResponse,
   ZarinpalVerifyResponse,
 } from "../../features/order/interface/order.interface";
-import { OrderStatus } from "../../generated/prisma";
+import { OrderStatus } from "@prisma/client";
 
 //+ ZARINPAL DATA:
 const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID;

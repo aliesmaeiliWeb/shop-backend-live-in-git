@@ -1,5 +1,5 @@
 import { IUserCreateBody, IUserUpdateAdmin, IUserUpdateProfile } from "../../features/user/interface/user.interface";
-import { Prisma } from "../../generated/prisma";
+import { Prisma } from "@prisma/client";
 import { BadRequestException, notFoundExeption } from "../../globals/middlewares/error.middleware";
 import { prisma } from "../../prisma";
 

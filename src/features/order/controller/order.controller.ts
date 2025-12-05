@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
 import { orderService } from "../../../services/db/order.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
-import { OrderStatus } from "../../../generated/prisma";
-import { unauthorizedExeption } from "../../../globals/middlewares/error.middleware";
+import { OrderStatus } from "@prisma/client";
 
 class OrderController {
   //+ create order
