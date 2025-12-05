@@ -250,6 +250,8 @@ model Order {
 
   status                                                     OrderStatus  @default(PENDING)
 
+  trackingCode                                               String?
+
   couponCode                                                 String?
 
   // Address Snapshot (We save the address as text, in case User changes it later)

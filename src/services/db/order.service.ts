@@ -348,7 +348,7 @@ class OrderService {
       where: { id: orderId },
       data: {
         status,
-        note: trackingCode ? `Tracking Code: ${trackingCode}` : undefined,
+        trackingCode: trackingCode || undefined,
       },
     });
   }
