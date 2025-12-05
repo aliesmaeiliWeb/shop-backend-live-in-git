@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { Schema, ValidationErrorItem } from "joi";
-import { CategorySchema } from "../../features/category/schema/category.schema";
+import { CategoryCreateSchema } from "../../features/category/schema/category.schema";
 
 const formatJoiMessage = (joiMessage: ValidationErrorItem[]) => {
   return joiMessage.map((msgObject) => msgObject.message.replace(/['"]/g, ""));
@@ -12,7 +12,7 @@ export const validateShema = (schema: Schema) => {
     if (req.files) {
       if (Array.isArray(req.files)) {
         if (req.files.length > 0) {
-          if (schema === CategorySchema) {
+          if (schema === CategoryCreateSchema) {
             req.body.imageUrl = req.files[0].filename;
           } else {
             req.body.main_Image = req.files.map(
@@ -23,7 +23,7 @@ export const validateShema = (schema: Schema) => {
       } else {
         const mainImages = req.files["main_Image"];
         if (mainImages && mainImages.length > 0) {
-          if (schema === CategorySchema) {
+          if (schema === CategoryCreateSchema) {
             req.body.imageUrl = mainImages[0].filename;
           } else {
             req.body.main_Image = mainImages.map(

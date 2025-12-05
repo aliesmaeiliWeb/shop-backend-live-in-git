@@ -1,13 +1,11 @@
-import express, { Application, NextFunction, Request, Response } from "express";
+import express, { Application } from "express";
 import cors from "cors";
 
 //? for read data in .env 👇
 import "dotenv/config";
 import appRoutes from "./globals/routes/appRoutes";
 import {
-  CustomError,
   globalErrorHandler,
-  IError,
   notFoundExeption,
 } from "./globals/middlewares/error.middleware";
 import cookieParser from "cookie-parser";
@@ -17,7 +15,6 @@ import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
 import hpp from "hpp";
 import path from "path";
-import { HTTP_STATUS } from "./globals/constants/http";
 
 class server {
   private app: Application;
