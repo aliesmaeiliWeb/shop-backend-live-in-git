@@ -36,7 +36,7 @@ class server {
     // this.app.use('/',express.static('image')); //+ for images
     this.app.use(cookieParser()); //? محل اضافه شدن میدلور کوکی پارسر برای رفرش توکن
 
-    const allowedOrigins = ["http://localhost:5173", "http://localhost:5000"];
+    // const allowedOrigins = ["http://localhost:5173", "http://localhost:5000"];
     this.app.use(
       cors({
         // origin: (origin, callback) => {
