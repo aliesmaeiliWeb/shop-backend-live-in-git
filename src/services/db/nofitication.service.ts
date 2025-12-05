@@ -1,5 +1,5 @@
 import Kavenegar = require("kavenegar");
-import { Order } from "../../generated/prisma";
+import { Order } from "@prisma/client";
 
 const kavenegarApi = Kavenegar.KavenegarApi({
   apikey: process.env.KAVENEGAR_API_KEY!,
