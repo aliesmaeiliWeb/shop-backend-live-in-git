@@ -1,4 +1,4 @@
-import { Express } from "express";
+// import { Express } from "express";
 import { prisma } from "../../prisma";
 import { fileRemoveService } from "./file-remove.service";
 import { notFoundExeption } from "../../globals/middlewares/error.middleware";

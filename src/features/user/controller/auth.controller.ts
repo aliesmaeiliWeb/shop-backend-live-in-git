@@ -1,9 +1,9 @@
-import { changePasswordSchema } from "./../schema/user.schema";
+// import { changePasswordSchema } from "./../schema/user.schema";
 import { NextFunction, Request, Response } from "express";
 import { authService } from "../../../services/db/auth.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
 import { unauthorizedExeption } from "../../../globals/middlewares/error.middleware";
-import { userService } from "../../../services/db/user.service";
+// import { userService } from "../../../services/db/user.service";
 
 class AuthController {
   public async loginAdmin(req: Request, res: Response) {

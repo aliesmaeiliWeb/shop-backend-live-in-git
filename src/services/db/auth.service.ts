@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "../../prisma";
 import {
   BadRequestException,
-  notFoundExeption,
+  // notFoundExeption,
   unauthorizedExeption,
 } from "../../globals/middlewares/error.middleware";
 import {
