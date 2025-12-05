@@ -39,14 +39,17 @@ class server {
     const allowedOrigins = ["http://localhost:5173", "http://localhost:5000"];
     this.app.use(
       cors({
-        origin: (origin, callback) => {
-          if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else {
-            callback(new Error("Not allowed by CORS"));
-          }
-        },
+        // origin: (origin, callback) => {
+        //   if (!origin || allowedOrigins.includes(origin)) {
+        //     callback(null, true);
+        //   } else {
+        //     callback(new Error("Not allowed by CORS"));
+        //   }
+        // },
+        origin: true,
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ["Content-Type", "Authorization"],
       })
     );
 
