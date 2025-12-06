@@ -3,7 +3,7 @@ import {
   IProductCreate,
   IProductUpdate,
 } from "../../features/product/interface/product.interface";
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import {
   BadRequestException,
   CustomError,
@@ -35,20 +35,24 @@ class ProductService {
 
   private transformProduct(product: any) {
     if (!product) return null;
-    const discount = product.discountPercent || 0;
+    const parentDiscount = product.discountPercent || 0;
     const parentFinalPrice =
-      product.basePrice - (product.basePrice * discount) / 100;
+      product.basePrice - (product.basePrice * parentDiscount) / 100;
 
     //? calculate final price for each sku
     let transformedSkus = [];
     if (product.skus) {
       transformedSkus = product.skus.map((sku: any) => {
-        const effectiveDiscount = product.discountPercent || 0;
-        const skuFinalPrice = sku.price - (sku.price * discount) / 100;
+        const skuDiscount = sku.discountPercent || 0;
+
+        const finalPrice = sku.finalPrice
+          ? sku.finalPrice
+          : sku.price - (sku.price * skuDiscount) / 100;
+
         return {
           ...sku,
-          finalPrice: skuFinalPrice,
-          appliedDiscount: effectiveDiscount,
+          finalPrice: finalPrice,
+          appliedDiscount: skuDiscount,
         };
       });
     }
@@ -118,15 +122,18 @@ class ProductService {
         //? create skus
         if (data.skus && data.skus.length > 0) {
           for (const sku of data.skus) {
+            const price = Number(sku.price);
+            const discount = Number(sku.discountPercent || 0);
+            const finalPrice = price - (price * discount) / 100;
+
             await tx.productSKU.create({
               data: {
                 productId: product.id,
                 sku: sku.sku,
-                price: Number(sku.price),
+                price: price,
                 quantity: Number(sku.quantity),
-                discountPercent: sku.discountPercent
-                  ? Number(sku.discountPercent)
-                  : 0,
+                discountPercent: discount,
+                finalPrice: finalPrice,
                 attributesJson: sku.attributes,
               },
             });
@@ -185,7 +192,7 @@ class ProductService {
   public async updateProduct(
     id: string,
     data: IProductUpdate & { skus?: any[] },
-    userId: string, // who is updating
+    userId: string,
     newMainImage?: string,
     newGalleryImages?: string[]
   ) {
@@ -242,6 +249,13 @@ class ProductService {
       //? handle sku updates
       if (data.skus && data.skus.length > 0) {
         for (const itemSku of data.skus) {
+          const price = Number(itemSku.price);
+          const discount =
+            itemSku.discountPercent !== undefined
+              ? Number(itemSku.discountPercent)
+              : 0;
+          const finalPrice = price - (price * discount) / 100;
+
           const existingSku = await tx.productSKU.findUnique({
             where: { sku: itemSku.sku },
           });
@@ -251,14 +265,12 @@ class ProductService {
             await tx.productSKU.update({
               where: { id: existingSku.id },
               data: {
-                price: itemSku.price ? Number(itemSku.price) : undefined,
+                price: price,
                 quantity: itemSku.quantity
                   ? Number(itemSku.quantity)
                   : undefined,
-                discountPercent:
-                  itemSku.discountPercent !== undefined
-                    ? Number(itemSku.discountPercent)
-                    : undefined,
+                discountPercent: discount,
+                finalPrice: finalPrice,
                 attributesJson: itemSku.attributes || undefined,
               },
             });
@@ -268,8 +280,10 @@ class ProductService {
               data: {
                 productId: product.id,
                 sku: itemSku.sku,
-                price: Number(itemSku.price),
+                price: price,
                 quantity: Number(itemSku.quantity),
+                discountPercent: discount,
+                finalPrice: finalPrice,
                 attributesJson: itemSku.attributes,
               },
             });
@@ -366,8 +380,8 @@ class ProductService {
           },
           category: { select: { name: true, slug: true } },
           skus: {
-            where: { deletedAt: null },
-            select: { price: true, quantity: true },
+            where: { deleteAt: null },
+            select: { price: true, finalPrice: true, quantity: true },
             take: 1,
           },
         },
@@ -396,7 +410,7 @@ class ProductService {
       throw new unauthorizedExeption("شما به این بخش اجازه دسترسی ندارید");
     }
 
-    //? instead of delate(), we update deletedAt
+    //? instead of delate(), we update deleteAt
     await prisma.product.update({
       where: { id },
       data: { deleteAt: new Date() },
@@ -405,7 +419,7 @@ class ProductService {
     //? optional : sort delete all skus too
     await prisma.productSKU.updateMany({
       where: { productId: id },
-      data: { deletedAt: new Date() },
+      data: { deleteAt: new Date() },
     });
   }
 
@@ -421,7 +435,7 @@ class ProductService {
       include: {
         category: true,
         gallery: true,
-        skus: { where: { deletedAt: null } }, // exclude deleted skus
+        skus: { where: { deleteAt: null } }, // exclude deleted skus
         priceHistory: { orderBy: { createdAt: "desc" }, take: 5 }, // show last 5 price changes
         attributes: {
           include: { attributeValue: { include: { attribute: true } } },
@@ -444,6 +458,96 @@ class ProductService {
 
     if (!product) throw new notFoundExeption("محصولی یافت نشد");
     return this.transformProduct(product);
+  }
+
+  //! get trashed products
+  public async getTrashedProduct(query: any, ownerId: string, role: string) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const { search, sort } = query;
+
+    const whereClause: Prisma.ProductWhereInput = {
+      deleteAt: { not: null },
+    };
+
+    if (role !== "ADMIN") {
+      whereClause.ownerId = ownerId;
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search } },
+        { shortDescription: { contains: search } },
+      ];
+    }
+
+    let orderBy: any = { deleteAt: "desc" };
+
+    if (sort === "price_asc") orderBy = { basePrice: "asc" };
+    if (sort === "price_desc") orderBy = { basePrice: "desc" };
+    if (sort === "oldest") orderBy = { deleteAt: "asc" };
+
+    const [products, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: orderBy,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          mainImage: true,
+          basePrice: true,
+          deleteAt: true,
+          category: { select: { name: true } },
+          skus: {
+            take: 1,
+          },
+        },
+      }),
+      prisma.product.count({ where: whereClause }),
+    ]);
+
+    const formattedProducts = products.map((p) => ({
+      ...p,
+      isDeleted: true,
+    }));
+
+    return {
+      data: formattedProducts,
+      pagination: {
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        limit,
+      },
+    };
+  }
+
+  //! restore product
+  public async restoreProduct(id: string) {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new notFoundExeption("محصولی با این مشخصات یافت نشد");
+    }
+
+    await prisma.product.update({
+      where: { id },
+      data: { deleteAt: null },
+    });
+
+    await prisma.productSKU.updateMany({
+      where: { productId: id },
+      data: { deleteAt: null },
+    });
+
+    return { message: "محصول با موفقیت باز یابی شد" };
   }
 
   //! gallery helpers
@@ -478,6 +582,26 @@ class ProductService {
         quantity: Number(data.quantity),
         attributesJson: data.attributes,
       },
+    });
+  }
+
+  //! delete sku
+  public async deleteSku(skuId: string, userId: string, role: string) {
+    const sku = await prisma.productSKU.findUnique({
+      where: { id: skuId },
+      include: { product: true },
+    });
+
+    if (!sku) {
+      throw new notFoundExeption("آیتمی یافت نشد");
+    }
+
+    if (role !== "ADMIN" && sku.product.ownerId !== userId) {
+      throw new unauthorizedExeption("شما اجازه حذف این آیتم را ندارید");
+    }
+
+    await prisma.productSKU.delete({
+      where: { id: skuId },
     });
   }
 }

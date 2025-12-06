@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { productService } from "../../../services/db/product.service";
 import { HTTP_STATUS } from "../../../globals/constants/http";
+import { productService } from "../../../services/db/product.service";
 
 class ProductController {
   //+ add product
@@ -78,7 +78,11 @@ class ProductController {
 
     //? parse json string skus if send as string
     if (bodyData.skus && typeof bodyData.skus === "string") {
-      try { bodyData.skus = JSON.parse(bodyData.skus); } catch (e) { bodyData.skus = [] }
+      try {
+        bodyData.skus = JSON.parse(bodyData.skus);
+      } catch (e) {
+        bodyData.skus = [];
+      }
     }
 
     const product = await productService.updateProduct(
@@ -86,7 +90,7 @@ class ProductController {
       bodyData,
       req.currentUser.id.toString(),
       mainImage,
-      galleryImages,
+      galleryImages
     );
 
     res.status(HTTP_STATUS.ok).json({
@@ -106,16 +110,41 @@ class ProductController {
     res.status(HTTP_STATUS.ok).json({ data: product });
   }
 
+  // get trash list
+  public async getTrash(req: Request, res: Response) {
+    const userId = req.currentUser.id.toString();
+    const role = req.currentUser.role;
+    // console.log(userId);
+    const data = await productService.getTrashedProduct(req.query ,userId, role);
+
+    res.status(HTTP_STATUS.ok).json({
+      message: "get trash successfully",
+      data
+    })
+  }
+
+  // restore trash
+  public async restore(req: Request, res: Response) {
+    const productId = req.params.id;
+    await productService.restoreProduct(productId);
+
+    res.status(HTTP_STATUS.ok).json({
+      message: "restore product successfully",
+    })
+  }
+
   // Soft Delete
   public async delete(req: Request, res: Response) {
-    console.log(req.currentUser.role, req.currentUser.id.toString());
-    
+    // console.log(req.currentUser.role, req.currentUser.id.toString());
+
     await productService.softDelete(
       req.params.id,
       req.currentUser.id.toString(),
       req.currentUser.role
     );
-    res.status(HTTP_STATUS.ok).json({ message: "Product deleted successfully" });
+    res
+      .status(HTTP_STATUS.ok)
+      .json({ message: "Product deleted successfully" });
   }
 
   // Add Images to Gallery
@@ -137,6 +166,23 @@ class ProductController {
   public async addSku(req: Request, res: Response) {
     const sku = await productService.addSkuToProduct(req.params.id, req.body);
     res.status(HTTP_STATUS.create).json({ message: "SKU added", data: sku });
+  }
+
+  // delete sku
+  public async removeSku(req: Request, res: Response) {
+    const skuId = req.params.skuId; 
+    const user = req.currentUser.id.toString(); 
+
+    const result = await productService.deleteSku(
+      skuId,
+      user,
+      user
+    );
+
+    res.status(200).json({
+      message: "delete sku successfully",
+      result
+    });
   }
 }
 

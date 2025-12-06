@@ -12,6 +12,13 @@ import {
 
 const productRoute = express.Router();
 
+productRoute.get(
+  "/trash",
+  verifyUser,
+  preventInActiveUser,
+  asyncWrapper(productController.getTrash.bind(productController))
+)
+
 productRoute.get("/", asyncWrapper(productController.getAll.bind(productController)));
 productRoute.get("/:id", asyncWrapper(productController.getOne.bind(productController)));
 
@@ -54,6 +61,11 @@ productRoute.put(
   asyncWrapper(productController.update.bind(productController))
 );
 
+productRoute.patch(
+  "/:id/restore",
+  asyncWrapper(productController.restore.bind(productController))
+);
+
 productRoute.delete(
   "/:id",
   asyncWrapper(productController.delete.bind(productController))
@@ -73,6 +85,11 @@ productRoute.delete(
 productRoute.post(
   "/:id/sku",
   asyncWrapper(productController.addSku.bind(productController))
+);
+
+productRoute.delete(
+  "/sku/:skuId", 
+  asyncWrapper(productController.removeSku.bind(productController))
 );
 
 export default productRoute;

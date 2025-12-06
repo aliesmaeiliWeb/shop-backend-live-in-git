@@ -15,8 +15,8 @@ class CategoryService {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, "") // Remove special chars
-      .replace(/\s+/g, "-"); // Replace spaces with -
+      .replace(/\s+/g, "-") // Remove special chars
+      .replace(/[^\w\s\u0600-\u06FF-]/g, ""); // Replace spaces with -
   }
 
   private async findCategoryById(id: string) {
@@ -29,6 +29,7 @@ class CategoryService {
 
   private async checkSlugUnique(slug: string) {
     const existing = await prisma.category.findUnique({ where: { slug } });
+    console.log(slug);
     if (existing) {
       throw new BadRequestException(
         "دسته بندی با این نام (Slug تکراری) موجود است."

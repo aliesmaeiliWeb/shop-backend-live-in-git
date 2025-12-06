@@ -58,6 +58,11 @@ export async function preventInActiveUser(
   res: Response,
   next: NextFunction
 ) {
+  const currentUser = (req as any).currentUser;
+
+  if (!currentUser || !currentUser.id) {
+    return next(new unauthorizedExeption("User context is missing"));
+  }
   const user = await userService.getOne(req.currentUser.id.toString());
 
   if (!user) {

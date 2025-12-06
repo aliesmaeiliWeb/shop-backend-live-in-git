@@ -140,12 +140,13 @@ model ProductSKU {
 
   productId       String
   product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  finalPrice      Float?
 
   //              Relations
   cartItems       CartItem[]
   orderItems      OrderItem[]
 
-  deletedAt       DateTime?
+  deleteAt       DateTime?
 
   // Which attributes define this SKU? (JSON is easier for simple shops)
   // Example: { "color": "Red", "size": "XL" }
