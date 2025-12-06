@@ -3,7 +3,7 @@ import {
   IProductCreate,
   IProductUpdate,
 } from "../../features/product/interface/product.interface";
-import { Prisma, Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   BadRequestException,
   CustomError,
