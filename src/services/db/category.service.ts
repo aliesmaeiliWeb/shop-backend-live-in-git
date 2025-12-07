@@ -39,8 +39,11 @@ class CategoryService {
 
   public async createCategory(data: ICategoryCreate, imageUrl?: string) {
     const slug = this.generateSlug(data.name);
-
     await this.checkSlugUnique(slug);
+
+    if (data.parentId) {
+      await this.findCategoryById(data.parentId);
+    }
 
     const category = await prisma.category.create({
       data: {
@@ -59,14 +62,25 @@ class CategoryService {
     //? Fetch Tree Structure (Root -> Children)
     return await prisma.category.findMany({
       where: { parentId: null }, // Get only parents
-      orderBy: { id: "asc" },
+      orderBy: { createdAt: "asc" },
       include: {
         children: {
-          orderBy: { id: "asc" },
-          include: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            icon: true,
+            imageUrl: true,
+            isActive: true,
+            parent: true,
             children: {
-              orderBy: { id: "asc" },
-            }
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
           },
         },
       },
@@ -93,7 +107,11 @@ class CategoryService {
     let slug = category.slug;
     if (data.name && data.name !== category.name) {
       const newSlug = this.generateSlug(data.name);
-      await this.checkSlugUnique(newSlug);
+
+      if (newSlug !== category.slug) {
+        await this.checkSlugUnique(newSlug);
+      }
+
       slug = newSlug;
     }
 
@@ -117,14 +135,18 @@ class CategoryService {
     });
 
     //? check if it has products
-    const hsaProducts = await prisma.product.findFirst({where: {categoryId: id}});
+    const hsaProducts = await prisma.product.findFirst({
+      where: { categoryId: id },
+    });
     if (hsaProducts) {
-      throw new BadRequestException("این دسته بندی دارای محصول می باشد و قابل حذف نیست.");
-    };
+      throw new BadRequestException(
+        "این دسته بندی دارای محصول می باشد و قابل حذف نیست."
+      );
+    }
 
     if (hasChildren) {
       throw new BadRequestException(
-        "Cannot delete category with sub-categories. Delete them first."
+        "این دسته بندی دارای زیرمجموعه است. ابتدا آن‌ها را حذف کنید."
       );
     }
 

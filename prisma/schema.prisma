@@ -70,19 +70,22 @@ model Address {
 // --------------------------------------
 
 model Category {
-  id       String      @id @default(uuid())
-  name     String
-  slug     String      @unique // SEO: /category/mobile-phones
-  icon     String?
-  imageUrl String?
-  isActive Boolean     @default(true)
+  id        String      @id @default(uuid())
+  name      String
+  slug      String      @unique // SEO: /category/mobile-phones
+  icon      String?
+  imageUrl  String?
+  isActive  Boolean     @default(true)
 
   // Sub-categories (Self Relation)
-  parentId String?
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryHierarchy")
+  parentId  String?
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
 
-  products Product[]
+  products  Product[]
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt @default(now())
 }
 
 model Product {
@@ -146,7 +149,7 @@ model ProductSKU {
   cartItems       CartItem[]
   orderItems      OrderItem[]
 
-  deleteAt       DateTime?
+  deleteAt        DateTime?
 
   // Which attributes define this SKU? (JSON is easier for simple shops)
   // Example: { "color": "Red", "size": "XL" }
