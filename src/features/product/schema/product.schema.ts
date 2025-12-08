@@ -18,6 +18,7 @@ export const productCreateSchema = Joi.object({
   categoryId: Joi.string().uuid().required(), 
   basePrice: Joi.number().required().min(0),
   discountPercent: Joi.number().min(0).max(100).default(0),
+  isAmazing: Joi.boolean().optional().default(false),
 
   skus: Joi.array().items(skuSchema).min(1).required().messages({
     "array.min": "حداقل یک SKU (تنوع محصول) باید وارد کنید",
@@ -35,6 +36,7 @@ export const productUpdateSchema = Joi.object({
   basePrice: Joi.number().min(0).optional(),
   discountPercent: Joi.number().min(0).max(100).optional(),
   isActive: Joi.boolean().optional(), 
+  isAmazing: Joi.boolean().optional(),
   
   skus: Joi.array().items(skuSchema).optional(),
 });

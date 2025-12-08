@@ -105,6 +105,9 @@ model Product {
 
   isActive                                                                 Boolean                @default(true)
 
+  isAmazing                                                                Boolean                @default(false)
+  soldCount                                                                Int                    @default(0)
+
   deleteAt         DateTime? // If this has a date, the product is deleted
 
   categoryId                                                               String

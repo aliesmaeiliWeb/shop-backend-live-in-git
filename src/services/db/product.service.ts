@@ -96,6 +96,8 @@ class ProductService {
               : 0,
             categoryId: data.categoryId,
             ownerId: ownerId,
+            isAmazing:
+              data.isAmazing === true || String(data.isAmazing) == "true",
           },
         });
 
@@ -303,6 +305,10 @@ class ProductService {
           discountPercent: data.discountPercent
             ? Number(data.discountPercent)
             : undefined,
+          isAmazing:
+            data.isAmazing !== undefined
+              ? data.isAmazing === true || String(data.isAmazing) === "true"
+              : undefined,
           isActive: data.isActive,
           categoryId: data.categoryId,
         },
@@ -323,7 +329,15 @@ class ProductService {
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, categoryId, minPrice, maxPrice, sort, hasDiscount } = query;
+    const {
+      search,
+      categoryId,
+      minPrice,
+      maxPrice,
+      sort,
+      hasDiscount,
+      isAmazing,
+    } = query;
 
     //? base filter always exclude deleted items sort default
     const whereClause: Prisma.ProductWhereInput = {
@@ -360,6 +374,10 @@ class ProductService {
     if (sort === "price_asc") orderBy = { basePrice: "asc" };
     if (sort === "price_desc") orderBy = { basePrice: "desc" };
 
+    //? best selling section
+    if (sort === "bestselling") orderBy = { soldCount: "desc" };
+    if (hasDiscount === "true" && !sort) orderBy = { discountPercent: "desc" };
+
     const [products, total] = await prisma.$transaction([
       prisma.product.findMany({
         where: whereClause,
@@ -373,6 +391,9 @@ class ProductService {
           slug: true,
           mainImage: true,
           basePrice: true,
+          shortDescription: true,
+          longDescription: true,
+          isAmazing: true,
           discountPercent: true,
           createdAt: true,
           gallery: {

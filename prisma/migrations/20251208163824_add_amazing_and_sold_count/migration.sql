@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `Product` ADD COLUMN `isAmazing` BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN `soldCount` INTEGER NOT NULL DEFAULT 0;

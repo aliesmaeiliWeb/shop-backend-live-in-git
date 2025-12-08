@@ -3,7 +3,7 @@ export interface ISkuCreate {
   price: number;
   quantity: number;
   discountPercent?: number;
-  attributes: Record<string, string>; // => { "Color": "Red", "Size": "XL" }
+  attributes: Record<string, string>; 
 }
 
 export interface IProductCreate {
@@ -11,6 +11,7 @@ export interface IProductCreate {
   shortDescription?: string;
   longDescription?: string;
   categoryId: string;
+  isAmazing: boolean;
   basePrice: number;
   discountPercent?: number;
 
@@ -27,6 +28,7 @@ export interface IProductUpdate {
   longDescription?: string;
   categoryId?: string;
   basePrice?: number;
+  isAmazing: boolean;
   discountPercent?: number;
   isActive?: boolean;
 }
