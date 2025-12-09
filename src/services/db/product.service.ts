@@ -378,6 +378,10 @@ class ProductService {
     if (sort === "bestselling") orderBy = { soldCount: "desc" };
     if (hasDiscount === "true" && !sort) orderBy = { discountPercent: "desc" };
 
+    if (isAmazing === "true") {
+      whereClause.isAmazing = true;
+    };
+
     const [products, total] = await prisma.$transaction([
       prisma.product.findMany({
         where: whereClause,

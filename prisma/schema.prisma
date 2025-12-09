@@ -345,9 +345,19 @@ model Payment {
   createdAt                                         DateTime  @default(now())
 }
 
+enum BannerPosition {
+  HOME_MAIN_SLIDER      
+  HOME_MIDDLE_BANNER    
+  HOME_BOTTOM_BANNER    
+  PRODUCT_SIDEBAR       
+  CATEGORY_HEADER
+}
+
 model Banner {
   id       String   @id @default(uuid())
   imageUrl String
   link     String?
   isActive Boolean  @default(true)
+
+  position BannerPosition @default(HOME_MAIN_SLIDER)
 }

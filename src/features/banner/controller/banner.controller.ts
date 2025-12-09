@@ -20,7 +20,8 @@ class BannerController {
   }
 
   public async getAllPublic(req: Request, res: Response) {
-    const banners = await bannerService.getAllPublic();
+    const positoin = req.query.position as string;
+    const banners = await bannerService.getAllPublic(positoin);
     res.status(HTTP_STATUS.ok).json({ data: banners });
   }
 
