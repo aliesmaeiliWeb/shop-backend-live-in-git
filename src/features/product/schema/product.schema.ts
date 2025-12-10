@@ -20,6 +20,11 @@ export const productCreateSchema = Joi.object({
   discountPercent: Joi.number().min(0).max(100).default(0),
   isAmazing: Joi.boolean().optional().default(false),
 
+  enName: Joi.string().optional().allow(""),
+  warranty: Joi.string().optional().allow(""),
+  amazingExpiresAt: Joi.date().optional().allow(null),
+  specifications: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
+
   skus: Joi.array().items(skuSchema).min(1).required().messages({
     "array.min": "حداقل یک SKU (تنوع محصول) باید وارد کنید",
     "any.required": "لیست SKU الزامی است"
@@ -37,6 +42,11 @@ export const productUpdateSchema = Joi.object({
   discountPercent: Joi.number().min(0).max(100).optional(),
   isActive: Joi.boolean().optional(), 
   isAmazing: Joi.boolean().optional(),
+
+  enName: Joi.string().optional().allow(""),
+  warranty: Joi.string().optional().allow(""),
+  amazingExpiresAt: Joi.date().optional().allow(null),
+  specifications: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
   
   skus: Joi.array().items(skuSchema).optional(),
 });

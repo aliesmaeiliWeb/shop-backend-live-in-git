@@ -103,6 +103,11 @@ model Product {
   basePrice                                                                Float                  @default(0)
   discountPercent                                                          Int?                   @default(0)
 
+  enName                                                                   String?
+  warranty                                                                 String?
+  amazingExpiresAt                                                         DateTime?
+  specifications                                                           Json?
+
   isActive                                                                 Boolean                @default(true)
 
   isAmazing                                                                Boolean                @default(false)
@@ -354,10 +359,10 @@ enum BannerPosition {
 }
 
 model Banner {
-  id       String   @id @default(uuid())
+  id       String          @id @default(uuid())
   imageUrl String
   link     String?
-  isActive Boolean  @default(true)
+  isActive Boolean         @default(true)
 
-  position BannerPosition @default(HOME_MAIN_SLIDER)
+  position BannerPosition  @default(HOME_MAIN_SLIDER)
 }

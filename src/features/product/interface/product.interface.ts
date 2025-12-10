@@ -3,7 +3,7 @@ export interface ISkuCreate {
   price: number;
   quantity: number;
   discountPercent?: number;
-  attributes: Record<string, string>; 
+  attributes: Record<string, string>;
 }
 
 export interface IProductCreate {
@@ -14,6 +14,11 @@ export interface IProductCreate {
   isAmazing: boolean;
   basePrice: number;
   discountPercent?: number;
+
+  enName?: string;
+  warranty?: string;
+  amazingExpiresAt?: string | Date;
+  specifications?: Record<string, string>; //key value json
 
   //an array of variation
   skus: ISkuCreate[];
@@ -31,4 +36,9 @@ export interface IProductUpdate {
   isAmazing: boolean;
   discountPercent?: number;
   isActive?: boolean;
+
+  enName?: string;
+  warranty?: string;
+  amazingExpiresAt?: string | Date | null;
+  specifications?: Record<string, string>;
 }

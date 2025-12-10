@@ -69,6 +69,16 @@ class ProductService {
   ) {
     const slug = this.generateSlug(data.name);
 
+    let specsData = data.specifications;
+    if (typeof data.specifications === "string") {
+      try {
+        specsData = JSON.parse(data.specifications);
+      } catch (error) {
+        console.error("parse specification data error", error);
+        specsData = {};
+      }
+    }
+
     try {
       const createdProductId = await prisma.$transaction(async (tx) => {
         //? check sku
@@ -86,6 +96,12 @@ class ProductService {
         const product = await tx.product.create({
           data: {
             name: data.name,
+            enName: data.enName,
+            warranty: data.warranty,
+            amazingExpiresAt: data.amazingExpiresAt
+              ? new Date(data.amazingExpiresAt)
+              : null,
+            specifications: specsData,
             slug: slug,
             shortDescription: data.shortDescription,
             longDescription: data.longDescription,
@@ -201,6 +217,16 @@ class ProductService {
     //? find existing product
     const product = await this.findProductById(id);
 
+    let specsData = data.specifications;
+    if (typeof data.specifications === "string") {
+      try {
+        specsData = JSON.parse(data.specifications);
+      } catch (error) {
+        console.error("error parse specificate json data: ", error);
+        specsData = undefined;
+      }
+    }
+
     const updatedProduct = await prisma.$transaction(async (tx) => {
       //? handle slug change
       let newSlug = product.slug;
@@ -297,6 +323,12 @@ class ProductService {
         where: { id },
         data: {
           name: data.name || undefined,
+          enName: data.enName,
+          warranty: data.warranty,
+          amazingExpiresAt: data.amazingExpiresAt
+            ? new Date(data.amazingExpiresAt)
+            : undefined,
+          specifications: specsData !== undefined ? specsData : undefined,
           slug: newSlug,
           shortDescription: data.shortDescription,
           longDescription: data.longDescription,
@@ -344,6 +376,15 @@ class ProductService {
       deleteAt: null,
     };
 
+    if (isAmazing === "true") {
+      whereClause.isAmazing = true;
+
+      whereClause.OR = [
+        { amazingExpiresAt: { gt: new Date() } },
+        { amazingExpiresAt: null },
+      ];
+    }
+
     //? search
     if (search) {
       whereClause.OR = [
@@ -380,7 +421,7 @@ class ProductService {
 
     if (isAmazing === "true") {
       whereClause.isAmazing = true;
-    };
+    }
 
     const [products, total] = await prisma.$transaction([
       prisma.product.findMany({
