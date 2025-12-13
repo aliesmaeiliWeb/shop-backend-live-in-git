@@ -35,29 +35,55 @@ class ProductService {
 
   private transformProduct(product: any) {
     if (!product) return null;
-    const parentDiscount = product.discountPercent || 0;
-    const parentFinalPrice =
-      product.basePrice - (product.basePrice * parentDiscount) / 100;
+
+    let displayPrice = product.basePrice;
+    let displayFinalPrice = 0;
+    let displayDiscount = product.discountPercent || 0;
+
+    displayFinalPrice = displayPrice - (displayPrice * displayDiscount) / 100;
 
     //? calculate final price for each sku
-    let transformedSkus = [];
-    if (product.skus) {
+    let transformedSkus:any = [];
+    if (product.skus && product.skus.length > 0) {
       transformedSkus = product.skus.map((sku: any) => {
-        const skuDiscount = sku.discountPercent || 0;
+        const sPrice = sku.price;
+        const sDiscount = sku.discountPercent || 0;
 
-        const finalPrice = sku.finalPrice
+        const sFinalPrice = sku.finalPrice
           ? sku.finalPrice
-          : sku.price - (sku.price * skuDiscount) / 100;
+          : sPrice - (sPrice * sDiscount) / 100;
 
         return {
           ...sku,
-          finalPrice: finalPrice,
-          appliedDiscount: skuDiscount,
+          price: sPrice,
+          discountPercent: sDiscount,
+          finalPrice: sFinalPrice,
+          appliedDiscount: sDiscount,
         };
       });
+
+      const availableSkus = transformedSkus.filter((s: any) => {
+        s.quantity > 0;
+      });
+
+      if (availableSkus.length > 0) {
+        const cheapestSku = availableSkus.reduce((prev: any, curr: any) => {
+          prev.finalPrice < curr.finalPrice ? prev : curr;
+        });
+
+        displayPrice = cheapestSku.price;
+        displayFinalPrice = cheapestSku.finalPrice;
+        displayDiscount = cheapestSku.discountPercent;
+      }
     }
 
-    return { ...product, finalPrice: parentFinalPrice, skus: transformedSkus };
+    return {
+      ...product,
+      basePrice: displayPrice, 
+      finalPrice: displayFinalPrice,
+      discountPercent: displayDiscount,
+      skus: transformedSkus,
+    };
   }
 
   //! create with price history log
@@ -445,7 +471,6 @@ class ProductService {
           skus: {
             where: { deleteAt: null },
             select: { price: true, finalPrice: true, quantity: true },
-            take: 1,
           },
         },
       }),
