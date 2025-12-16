@@ -36,13 +36,14 @@ class ProductService {
   private transformProduct(product: any) {
     if (!product) return null;
 
+    //? calculate for product
     let displayPrice = product.basePrice;
     let displayFinalPrice = 0;
     let displayDiscount = product.discountPercent || 0;
 
     displayFinalPrice = displayPrice - (displayPrice * displayDiscount) / 100;
 
-    //? calculate final price for each sku
+    //? calculate for sku
     let transformedSkus:any = [];
     if (product.skus && product.skus.length > 0) {
       transformedSkus = product.skus.map((sku: any) => {
@@ -414,11 +415,11 @@ class ProductService {
     //? search
     if (search) {
       whereClause.OR = [
-        { name: { contains: search } },
+        { name: { contains: search } },                                                                         
         { shortDescription: { contains: search } },
       ];
     }
-
+                                                 
     //? Category
     if (categoryId) {
       whereClause.categoryId = categoryId;

@@ -52,8 +52,8 @@ class CartController {
 
   //? sync guest cart
   public async syncCart(req:Request, res:Response) {
-    const {item} = req.body;
-    const safeItem = Array.isArray(item) ? item: [];
+    const {items} = req.body;
+    const safeItem = Array.isArray(items) ? items: [];
     const cart = await cartService.syncGuestCart(req.currentUser.id.toString(), safeItem);
     
     res.status(HTTP_STATUS.ok).json({

@@ -22,16 +22,17 @@ orderRouter.get(
     asyncWrapper(orderController.getMyOrder.bind(orderController))
 );
 
+orderRouter.post(
+  "/checkout",
+  validateShema(createOrderSchema),
+  asyncWrapper(orderController.checkout.bind(orderController))
+);
+
 // 3. Create & Pay
 orderRouter.post(
   "/",
   validateShema(createOrderSchema),
   asyncWrapper(orderController.create.bind(orderController))
-);
-
-orderRouter.post(
-    "/:orderId/pay", 
-    asyncWrapper(orderController.initiatePayment.bind(orderController))
 );
 
 orderRouter.patch(

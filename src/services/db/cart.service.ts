@@ -205,6 +205,7 @@ class CartService {
         await this.addToCart(userId, item.skuId, item.quantity);
       } catch (error) {
         console.warn("خطا در همگام سازی سبد خرید");
+        console.error(error);
       }
     }
 

@@ -4,6 +4,19 @@ import { HTTP_STATUS } from "../../../globals/constants/http";
 import { OrderStatus } from "@prisma/client";
 
 class OrderController {
+  //+ check out 
+  public async checkout(req: Request, res: Response) {
+    const result = await orderService.checkoutAndpay(
+      req.currentUser.id.toString(),
+      req.body 
+    );
+
+    res.status(HTTP_STATUS.ok).json({
+      message: result.message,
+      data: result, 
+    });
+  }
+
   //+ create order
   public async create(req: Request, res: Response) {
     const order = await orderService.createOrder(
@@ -17,14 +30,6 @@ class OrderController {
     });
   }
 
-  public async initiatePayment(req: Request, res: Response) {
-    const result = await orderService.initiatePayment(
-      req.params.orderId,
-      req.currentUser.id.toString()
-    );
-    res.status(HTTP_STATUS.ok).json(result);
-  }
-
   public async verifyPaymentCallBack(req: Request, res: Response) {
     const { Authority, Status } = req.query;
 
@@ -34,9 +39,15 @@ class OrderController {
         Status as string
       );
 
-      res.status(HTTP_STATUS.ok).json(result);
+      const frontendUrl = `http://localhost:3000/payment/result?status=success&refId=${result.refId}`;
+      
+      return res.redirect(frontendUrl);
+
     } catch (error: any) {
-      res.status(400).json({ message: error.message || "خطا" });
+      console.error("Payment Verify Error:", error);
+      const frontendUrl = `http://localhost:3000/payment/result?status=failed&message=${encodeURIComponent("پرداخت ناموفق بود")}`;
+      
+      return res.redirect(frontendUrl);
     }
   }
 

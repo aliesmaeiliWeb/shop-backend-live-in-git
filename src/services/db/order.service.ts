@@ -17,11 +17,169 @@ const ZARINPAL_MERCHANT_ID = process.env.ZARINPAL_MERCHANT_ID;
 const ZARINPAL_API_REQUEST = process.env.ZARINPAL_API_REQUEST;
 const ZARINPAL_API_VERIFY = process.env.ZARINPAL_API_VERIFY;
 
+const APP_URL = process.env.APP_BASE_URL || "http://localhost:3000/api/v1";
+
 class OrderService {
   private generateOrderNumber() {
     return `ORD-${Date.now().toString().slice(-6)}-${Math.floor(
       Math.random() * 100
     )}`;
+  }
+
+  public async checkoutAndpay(
+    userId: string,
+    data: { addressId: string; note?: string; couponCode?: string }
+  ) {
+    const { addressId, note, couponCode } = data;
+
+    const address = await prisma.address.findUnique({
+      where: { id: addressId },
+    });
+    if (!address || address.userId !== userId)
+      throw new notFoundExeption("آدرسی پیدا نشد");
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new notFoundExeption("کاربر یافت نشد");
+
+    const cart = await prisma.cart.findUnique({
+      where: { userId },
+      include: {
+        items: {
+          include: {
+            productSKU: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cart || cart.items.length === 0)
+      throw new BadRequestException("سبد خرید خالی است");
+
+    const totalPrice = cart.totalPrice;
+    //! shipping cost fixed for now
+    const shippingCost = 50000;
+    let discountAmount = 0;
+    if (couponCode) {
+      discountAmount = await couponService.validateCoupon(
+        couponCode,
+        totalPrice
+      );
+    }
+    const finalPrice = totalPrice + shippingCost - discountAmount;
+
+    //? transaction
+    return await prisma.$transaction(async (tx) => {
+      for (const item of cart.items) {
+        const currentSku = await tx.productSKU.findUnique({
+          where: { id: item.productSKUId },
+        });
+        if (!currentSku || currentSku.quantity < item.quantity) {
+          throw new BadRequestException("موجودی این محصول کافی نمیباشد");
+        }
+        await tx.productSKU.update({
+          where: { id: item.productSKUId },
+          data: { quantity: { decrement: item.quantity } },
+        });
+      }
+
+      //? zarin pall payment request
+      let paymentAuthority = "";
+      const callbackUrl = `${APP_URL}/payment/callback`;
+      try {
+        const zarinResponse = await axios.post<ZarinpalRequestResponse>(
+          `${ZARINPAL_API_REQUEST}`,
+          {
+            merchant_id: ZARINPAL_MERCHANT_ID,
+            amount: finalPrice * 10,
+            description: `Order Payment for User #${userId}`,
+            callback_url: callbackUrl,
+            metadata: {
+                mobile: user.phoneNumber,
+                email: user.email 
+            }
+          }
+        );
+
+        const { data } = zarinResponse.data;
+        if (!data || data.code !== 100) {
+          throw new BadRequestException("خطا در پنل زرین پال");
+        }
+        paymentAuthority = data.authority;
+      } catch (error) {
+        console.error("Zarinpal Connection Error:", error);
+        throw new BadRequestException(
+          "ارتباط با درگاه پرداخت برقرار نشد. سفارش ثبت نشد."
+        );
+      }
+
+      const order = await tx.order.create({
+        data: {
+          orderNumber: this.generateOrderNumber(),
+          userId,
+          addressJson: JSON.stringify(address),
+          receiverName:
+            `${user.name || ""} ${user.lastName || ""}`.trim() || "Unknown",
+          receiverPhone: user.phoneNumber,
+          note,
+          totalPrice,
+          shippingCost,
+          discountAmount,
+          finalPrice,
+          couponCode,
+          status: "PENDING",
+        },
+      });
+
+      const orderItemData = cart.items.map((item) => {
+        const originalPrice = item.productSKU.price;
+        const discountPercent = item.productSKU.product.discountPercent || 0;
+        const skuDiscount = item.productSKU.discountPercent || 0;
+        const effectiveDiscount =
+          skuDiscount > 0 ? skuDiscount : discountPercent;
+        const finalItemPrice =
+          originalPrice - (originalPrice * effectiveDiscount) / 100;
+
+        return {
+          orderId: order.id,
+          productSKUId: item.productSKUId,
+          productName: item.productSKU.product.name,
+          skuCode: item.productSKU.sku,
+          quantity: item.quantity,
+          price: finalItemPrice,
+          image: item.productSKU.product.mainImage,
+        };
+      });
+      await tx.orderItem.createMany({ data: orderItemData });
+
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          amount: finalPrice,
+          gateway: "ZARINPAL",
+          resNumber: paymentAuthority,
+          status: false,
+        },
+      });
+
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await tx.cart.update({ where: { id: cart.id }, data: { totalPrice: 0 } });
+
+      if (couponCode) {
+        await tx.coupon.update({
+          where: { code: couponCode },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
+      return {
+        message: "سفارش ثبت شد و در حال انتقال به درگاه هستید",
+        url: `https://sandbox.zarinpal.com/pg/StartPay/${paymentAuthority}`,
+      };
+    });
   }
 
   //? helper logic
@@ -44,171 +202,6 @@ class OrderService {
     });
   }
 
-  //! create order pending
-  public async createOrder(
-    userId: string,
-    data: { addressId: string; note?: string; couponCode?: string }
-  ) {
-    const { addressId, note, couponCode } = data;
-
-    //? check address
-    const address = await prisma.address.findUnique({
-      where: { id: addressId },
-    });
-    if (!address || address.userId !== userId)
-      throw new notFoundExeption("آدرسی پیدا نشد");
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new notFoundExeption("کاربر یافت نشد");
-
-    //? get cart with details
-    const cart = await prisma.cart.findUnique({
-      where: { userId },
-      include: {
-        items: { include: { productSKU: { include: { product: true } } } },
-      },
-    });
-
-    if (!cart || cart.items.length === 0)
-      throw new BadRequestException("سبد خرید خالی است");
-
-    //? calculate price
-    const totalPrice = cart.totalPrice;
-    const shippingCost = 50000;
-    let discountAmount = 0;
-
-    if (couponCode) {
-      discountAmount = await couponService.validateCoupon(
-        couponCode,
-        totalPrice
-      );
-    }
-
-    const finalPrice = totalPrice + shippingCost - discountAmount;
-
-    //? transaction
-    return await prisma.$transaction(async (tx) => {
-      //? check stock logic
-      for (const item of cart.items) {
-        const currentSku = await tx.productSKU.findUnique({
-          where: { id: item.productSKUId },
-        });
-        if (!currentSku || currentSku.quantity < item.quantity) {
-          throw new BadRequestException("موجودی این محصول کافی نمیباشد");
-        }
-
-        await tx.productSKU.update({
-          where: { id: item.productSKUId },
-          data: { quantity: { decrement: item.quantity } },
-        });
-      }
-
-      //? create order
-      const order = await tx.order.create({
-        data: {
-          orderNumber: this.generateOrderNumber(),
-          userId,
-          addressJson: JSON.stringify(address),
-          receiverName:
-            `${user.name || ""} ${user.lastName || ""}`.trim() || "Unknown",
-          receiverPhone: user.phoneNumber,
-          note: note,
-          totalPrice,
-          shippingCost,
-          discountAmount,
-          finalPrice,
-          couponCode,
-          status: "PENDING",
-        },
-      });
-
-      const orderItemData = cart.items.map((item) => {
-        const originalPrice = item.productSKU.price;
-        const discountPercent = item.productSKU.product.discountPercent || 0;
-        const skuDiscount = item.productSKU.discountPercent || 0;
-
-        const effectiveDiscount = skuDiscount > 0 ? skuDiscount : discountPercent;
-
-        const finalItemPrice =
-          originalPrice - (originalPrice * effectiveDiscount) / 100;
-
-        return {
-          orderId: order.id,
-          productSKUId: item.productSKUId,
-          productName: item.productSKU.product.name,
-          skuCode: item.productSKU.sku,
-          quantity: item.quantity,
-          price: finalItemPrice,
-          image: item.productSKU.product.mainImage,
-        };
-      });
-
-      //? create order itmems
-      await tx.orderItem.createMany({ data: orderItemData });
-
-      //? update coupon usage
-      if (couponCode) {
-        await tx.coupon.update({
-          where: { code: couponCode },
-          data: { usedCount: { increment: 1 } },
-        });
-      }
-
-      //? clear cart
-      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-      await tx.cart.update({ where: { id: cart.id }, data: { totalPrice: 0 } });
-
-      return order;
-    });
-  }
-
-  //! initiatePayment
-  public async initiatePayment(orderId: string, userId: string) {
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-
-    if (!order) throw new notFoundExeption("سفارش یافت نشد");
-    if (order.userId !== userId)
-      throw new unauthorizedExeption("برای دسترسی به این بخش لطفا وارد بشوید");
-    if (order.status !== "PENDING")
-      throw new BadRequestException("سفارش شما معلق نیست");
-
-    try {
-      const response = await axios.post<ZarinpalRequestResponse>(
-        `${ZARINPAL_API_REQUEST}/request.json`,
-        {
-          merchant_id: ZARINPAL_MERCHANT_ID,
-          amount: order.finalPrice * 10, // Toman to Rial
-          description: `Order Payment #${order.orderNumber}`,
-          callback_url: `/calback_zarinpall`,
-        }
-      );
-
-      const { data } = response.data;
-
-      if (data && data.code === 100) {
-        //? save payment record
-        await prisma.payment.create({
-          data: {
-            orderId: order.id,
-            amount: order.finalPrice,
-            gateway: "ZARINPAL",
-            //? save authority
-            resNumber: data.authority,
-            status: false,
-          },
-        });
-
-        return {
-          url: `https://sandbox.zarinpal.com/pg/StartPay/${data.authority}`,
-        };
-      } else {
-        throw new BadRequestException("خطا در پنل زرین پال");
-      }
-    } catch (error) {
-      throw new BadRequestException("خطا در اتصال برای پرداخت");
-    }
-  }
-
   //! verify payment
   public async verifyPayment(authority: string, status: string) {
     if (status !== "ok")
@@ -226,7 +219,7 @@ class OrderService {
 
     try {
       const response = await axios.post<ZarinpalVerifyResponse>(
-        `${ZARINPAL_API_VERIFY}/verify.json`,
+        `${ZARINPAL_API_VERIFY}`,
         {
           merchant_id: ZARINPAL_MERCHANT_ID,
           amount: order.finalPrice * 10,
