@@ -17,19 +17,6 @@ class OrderController {
     });
   }
 
-  //+ create order
-  public async create(req: Request, res: Response) {
-    const order = await orderService.createOrder(
-      req.currentUser.id.toString(),
-      req.body
-    );
-
-    res.status(HTTP_STATUS.create).json({
-      message: "سبد خرید با موفقیت ساخته شد",
-      data: order,
-    });
-  }
-
   public async verifyPaymentCallBack(req: Request, res: Response) {
     const { Authority, Status } = req.query;
 

@@ -51,6 +51,51 @@ class WishlistService {
     }
   }
 
+  //! helper price product
+  private transformWishlistItem(product: any) {
+    let displayPrice = product.basePrice;
+    let displayFinalPrice = product.basePrice;
+    let displayDiscount = product.discountPercent || 0;
+
+    if (displayDiscount > 0) {
+      displayFinalPrice = displayPrice - (displayPrice * displayDiscount) / 100;
+    }
+
+    if (product.skus && product.skus.length > 0) {
+      const availableSkus = product.skus.filter((s: any) => s.quantity > 0);
+
+      if (availableSkus.length > 0) {
+        const skusWithFinalPrice = availableSkus.map((s: any) => {
+          const sPrice = s.price;
+          const sDiscount = s.discountPercent || 0;
+          const sFinal = s.finalPrice
+            ? s.finalPrice
+            : sPrice - (sPrice * sDiscount) / 100;
+          return { ...s, calculatedFinalPrice: sFinal };
+        });
+
+        const cheapestSku = skusWithFinalPrice.reduce(
+          (prev: any, curr: any) => {
+            return prev.calculatedFinalPrice < curr.calculatedFinalPrice
+              ? prev
+              : curr;
+          }
+        );
+
+        displayPrice = cheapestSku.price;
+        displayFinalPrice = cheapestSku.calculatedFinalPrice;
+        displayDiscount = cheapestSku.discountPercent;
+      }
+    }
+
+    return {
+      ...product,
+      basePrice: displayPrice,
+      finalPrice: displayFinalPrice,
+      discountPercent: displayDiscount,
+    };
+  }
+
   //! get user's wishlist: we need to return the product details(name, image, price)
   public async getMyWishlist(userId: string) {
     const wishlist = await prisma.wishList.findMany({
@@ -64,6 +109,15 @@ class WishlistService {
             mainImage: true,
             basePrice: true,
             discountPercent: true,
+            skus: {
+              where: {deleteAt: null, quantity: {gt:0}},
+              select: {
+                price: true,
+                finalPrice: true,
+                discountPercent: true,
+                quantity: true,
+              }
+            }
           },
         },
       },

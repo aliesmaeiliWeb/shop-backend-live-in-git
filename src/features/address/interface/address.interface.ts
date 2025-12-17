@@ -4,4 +4,6 @@ export interface IAddressBody {
   city: string;
   street: string;
   postalCode: string;
+  receiverName?: string;
+  receiverPhone?: string;
 }

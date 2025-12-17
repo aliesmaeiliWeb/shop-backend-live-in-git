@@ -28,13 +28,6 @@ orderRouter.post(
   asyncWrapper(orderController.checkout.bind(orderController))
 );
 
-// 3. Create & Pay
-orderRouter.post(
-  "/",
-  validateShema(createOrderSchema),
-  asyncWrapper(orderController.create.bind(orderController))
-);
-
 orderRouter.patch(
     "/:id/cancel", 
     asyncWrapper(orderController.cancel.bind(orderController))

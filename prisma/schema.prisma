@@ -60,6 +60,9 @@ model Address {
   city                                        String
   postalCode                                  String
 
+  receiverName                                String?
+  receiverPhone                               String?
+
   userId                                      String
   user                                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt                                   DateTime  @default(now())

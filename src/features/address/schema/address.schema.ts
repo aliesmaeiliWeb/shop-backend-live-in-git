@@ -10,6 +10,9 @@ export const addressSchema = Joi.object({
     .messages({ "any.required": "City is required" }),
   street: Joi.string().required(),
 
+  receiverName: Joi.string().required(),
+  receiverPhone: Joi.string().required().regex(/^09\d{9}$/),
+
   postalCode: Joi.string()
     .length(10)
     .pattern(/^[0-9]+$/)

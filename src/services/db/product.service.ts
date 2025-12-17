@@ -44,7 +44,7 @@ class ProductService {
     displayFinalPrice = displayPrice - (displayPrice * displayDiscount) / 100;
 
     //? calculate for sku
-    let transformedSkus:any = [];
+    let transformedSkus: any = [];
     if (product.skus && product.skus.length > 0) {
       transformedSkus = product.skus.map((sku: any) => {
         const sPrice = sku.price;
@@ -80,7 +80,7 @@ class ProductService {
 
     return {
       ...product,
-      basePrice: displayPrice, 
+      basePrice: displayPrice,
       finalPrice: displayFinalPrice,
       discountPercent: displayDiscount,
       skus: transformedSkus,
@@ -415,11 +415,11 @@ class ProductService {
     //? search
     if (search) {
       whereClause.OR = [
-        { name: { contains: search } },                                                                         
+        { name: { contains: search } },
         { shortDescription: { contains: search } },
       ];
     }
-                                                 
+
     //? Category
     if (categoryId) {
       whereClause.categoryId = categoryId;
@@ -471,7 +471,12 @@ class ProductService {
           category: { select: { name: true, slug: true } },
           skus: {
             where: { deleteAt: null },
-            select: { price: true, finalPrice: true, quantity: true },
+            select: {
+              price: true,
+              finalPrice: true,
+              quantity: true,
+              discountPercent: true,
+            },
           },
         },
       }),
