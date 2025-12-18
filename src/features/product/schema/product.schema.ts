@@ -22,7 +22,7 @@ export const productCreateSchema = Joi.object({
 
   enName: Joi.string().optional().allow(""),
   warranty: Joi.string().optional().allow(""),
-  amazingExpiresAt: Joi.date().optional().allow(null),
+  amazingExpiresAt: Joi.date().empty("").allow(null).default(null).optional(),
   specifications: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
 
   skus: Joi.array().items(skuSchema).min(1).required().messages({
@@ -45,7 +45,7 @@ export const productUpdateSchema = Joi.object({
 
   enName: Joi.string().optional().allow(""),
   warranty: Joi.string().optional().allow(""),
-  amazingExpiresAt: Joi.date().optional().allow(null),
+  amazingExpiresAt: Joi.date().empty("").allow(null).default(null).optional(),
   specifications: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
   
   skus: Joi.array().items(skuSchema).optional(),

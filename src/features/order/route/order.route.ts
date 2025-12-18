@@ -33,6 +33,13 @@ orderRouter.patch(
     asyncWrapper(orderController.cancel.bind(orderController))
 );
 
+// 5. Dynamic Admin Routes (/:id)
+orderRouter.get(
+    "/:id", 
+    asyncWrapper(orderController.getOne.bind(orderController))
+);
+
+
 // --- Admin Routes (Admin & Shop) ---
 orderRouter.use(checkpermission("ADMIN"));
 
@@ -45,12 +52,6 @@ orderRouter.get(
 orderRouter.get(
     "/user/:userId", 
     asyncWrapper(orderController.getForUser.bind(orderController))
-);
-
-// 5. Dynamic Admin Routes (/:id)
-orderRouter.get(
-    "/:id", 
-    asyncWrapper(orderController.getOne.bind(orderController))
 );
 
 orderRouter.patch(
