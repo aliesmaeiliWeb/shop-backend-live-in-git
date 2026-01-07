@@ -28,6 +28,13 @@ orderRouter.post(
   asyncWrapper(orderController.checkout.bind(orderController))
 );
 
+// 4. Specific Admin Routes
+orderRouter.get(
+    "/all", 
+    checkpermission("ADMIN"),
+    asyncWrapper(orderController.getAll.bind(orderController))
+);
+
 orderRouter.patch(
     "/:id/cancel", 
     asyncWrapper(orderController.cancel.bind(orderController))
@@ -42,12 +49,6 @@ orderRouter.get(
 
 // --- Admin Routes (Admin & Shop) ---
 orderRouter.use(checkpermission("ADMIN"));
-
-// 4. Specific Admin Routes
-orderRouter.get(
-    "/all", 
-    asyncWrapper(orderController.getAll.bind(orderController))
-);
 
 orderRouter.get(
     "/user/:userId", 

@@ -129,7 +129,7 @@ class CartService {
       });
     }
 
-    // final step: recalculate total price
+    // recalculate total price
     await this.recalculateCartTotal(cart.id);
     return this.getCart(userId);
   }

@@ -274,6 +274,7 @@ class ProductService {
             oldPrice: product.basePrice,
             newPrice: Number(data.basePrice),
             changedBy: userId,
+            skuId: null,
           },
         });
       }
@@ -304,23 +305,34 @@ class ProductService {
       //? handle sku updates
       if (data.skus && data.skus.length > 0) {
         for (const itemSku of data.skus) {
-          const price = Number(itemSku.price);
+          const newPrice = Number(itemSku.price);
           const discount =
             itemSku.discountPercent !== undefined
               ? Number(itemSku.discountPercent)
               : 0;
-          const finalPrice = price - (price * discount) / 100;
+          const finalPrice = newPrice - (newPrice * discount) / 100;
 
           const existingSku = await tx.productSKU.findUnique({
             where: { sku: itemSku.sku },
           });
 
           if (existingSku) {
-            //? update existing sku
+            if (existingSku.price !== newPrice) {
+              await tx.productPriceHistory.create({
+                data: {
+                  productId: product.id,
+                  skuId: existingSku.id,
+                  oldPrice: existingSku.price,
+                  newPrice: newPrice,
+                  changedBy: userId,
+                },
+              });
+            }
+
             await tx.productSKU.update({
               where: { id: existingSku.id },
               data: {
-                price: price,
+                price: newPrice,
                 quantity: itemSku.quantity
                   ? Number(itemSku.quantity)
                   : undefined,
@@ -330,12 +342,11 @@ class ProductService {
               },
             });
           } else {
-            //? create new sku
             await tx.productSKU.create({
               data: {
                 productId: product.id,
                 sku: itemSku.sku,
-                price: price,
+                price: newPrice,
                 quantity: Number(itemSku.quantity),
                 discountPercent: discount,
                 finalPrice: finalPrice,

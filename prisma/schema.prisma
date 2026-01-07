@@ -146,14 +146,16 @@ model ProductGallery {
 
 // The actual sellable item (Example: T-Shirt Red XL)
 model ProductSKU {
-  id              String       @id @default(uuid())
-  sku             String       @unique // The barcode/code
+  id              String                 @id @default(uuid())
+  sku             String                 @unique // The barcode/code
   price           Float
-  quantity        Int          @default(0) // Stock
-  discountPercent Int?         @default(0)
+  quantity        Int                    @default(0) // Stock
+  discountPercent Int?                   @default(0)
+
+  priceHistory    ProductPriceHistory[]
 
   productId       String
-  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   finalPrice      Float?
 
   //              Relations
@@ -168,14 +170,17 @@ model ProductSKU {
 }
 
 model ProductPriceHistory {
-  id                                          String    @id @default(uuid())
+  id                                          String       @id @default(uuid())
   productId                                   String
-  product                                     Product  @relation(fields: [productId],references: [id], onDelete: Cascade)
+
+  skuId                                       String?
+  sku                                         ProductSKU? @relation(fields: [skuId], references: [id])
+  product                                     Product     @relation(fields: [productId],references: [id], onDelete: Cascade)
   oldPrice                                    Float
   newPrice                                    Float
   changedBy String // admin id who changed it
 
-  createdAt                                   DateTime  @default(now())
+  createdAt                                   DateTime     @default(now())
 }
 
 // Defining available attributes (Color, Size, Material)

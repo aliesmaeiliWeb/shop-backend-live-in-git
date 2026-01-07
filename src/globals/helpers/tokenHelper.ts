@@ -3,13 +3,13 @@ import jwt from "jsonwebtoken";
 class TokenHelper {
   public generateAccessToken(payload: { id: string; role: string }): string {
     return jwt.sign(payload, process.env.JWT_SECRET || "secret_key_dev", {
-      expiresIn: "15d", // عمر کوتاه برای امنیت
+      expiresIn: "15d", 
     });
   }
 
   public generateRefreshToken(payload: { id: string; role: string }): string {
     return jwt.sign(payload, process.env.JWT_SECRET || "secret_key_dev", {
-      expiresIn: "30d", // عمر طولانی برای راحتی کاربر
+      expiresIn: "30d",
     });
   }
 
